@@ -1,0 +1,6 @@
+SELECT MIN(CASE WHEN ISFINITE(TRY_CAST("Price" AS DOUBLE)) THEN TRY_CAST("Price" AS DOUBLE) ELSE NULL END) AS result FROM (SELECT * FROM (SELECT * FROM (SELECT * FROM (SELECT * EXCLUDE (__mapped), __mapped."Price" AS "Price" FROM (SELECT *, STRUCT_PACK("Price" := TRY_CAST(NULLIF(SEMANTIC_STRING('Extract the house price from the detail about the estate. Return a single numeric amount in Nigerian naira (NGN), with no currency symbol or unit suffix. Expand thousand/k, million/m and billion/b to their numeric multipliers. This dataset uses NGN when currency is omitted. If no unique price is stated, the price is a range, or a different currency is stated, return null. Do not infer a price from bedroom counts or other unrelated numbers.
+Inputs: Details: {Details}
+Output protocol: If the requested value is missing, return exactly __SQL_NULL__. Otherwise return only the requested value. Preserve an empty string as empty.'), '__SQL_NULL__') AS DOUBLE)) AS __mapped FROM (SELECT * FROM nirvana_estate) AS stage_0) AS project_1) AS stage_1 WHERE SEMANTIC('Whether the estate has more than 3 bedrooms.
+Inputs: Title: {Title}')) AS stage_2 WHERE SEMANTIC('Whether the estate has less than 6 bedrooms.
+Inputs: Title: {Title}')) AS stage_3 WHERE SEMANTIC('Whether the estate is a detached duplex.
+Inputs: Title: {Title}')) AS stage_4;

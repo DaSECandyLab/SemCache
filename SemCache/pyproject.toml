@@ -1,0 +1,16 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+extend-exclude = [".venv-optimizer", ".venv-tools", "build", "results", "third_party", "duckdb"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "C4", "PLW1510"]
+
+[tool.basedpyright]
+include = ["optimizer", "experiments", "../experiments"]
+exclude = ["build", "experiments/results", "../experiments/results", "../experiments/data", "**/__pycache__"]
+extraPaths = ["optimizer", ".."]
+venvPath = "."
+venv = ".venv-optimizer"
+pythonVersion = "3.12"
+typeCheckingMode = "basic"

@@ -1,0 +1,13 @@
+{
+  "experiment": {
+    "semcache_root": "../SemCache",
+    "semcache_system_config": "../SemCache/config/system/config.json",
+    "results_root": "results",
+    "reference_answers_root": "results/reference_answers",
+    "semcache_results_root": "results/semcache",
+    "system_comparison_results_root": "results/system_comparison",
+    "global_http_limit": 16,
+    "cpu_parallelism": 16,
+    "timezone": "Asia/Shanghai"
+  }
+}

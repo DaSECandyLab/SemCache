@@ -1,0 +1,12 @@
+{
+  "evaluation": {
+    "heldout_query_root": "../benchmarks/queries/translated/semcache",
+    "reference_answers_dir": "results/reference_answers/semcache/testing",
+    "accuracy_minimums": [0.2, 0.5, 0.8],
+    "global_http_limit": 16,
+    "prompt_cache_enabled": true,
+    "verify_on_second_use": false,
+    "clear_prompt_cache_before_case": true,
+    "clear_model_kv_cache_before_case": true
+  }
+}

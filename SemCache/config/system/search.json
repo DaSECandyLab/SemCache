@@ -1,0 +1,15 @@
+{
+  "search": {
+    "beam_width": 90,
+    "workers": 8,
+    "fixed_model_id": "gemma4-e2b",
+    "inference": {
+      "max_expansions": 100000,
+      "max_seconds": 60
+    },
+    "training": {
+      "max_expansions": 1000000,
+      "max_seconds": 600
+    }
+  }
+}

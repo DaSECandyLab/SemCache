@@ -1,0 +1,8 @@
+{
+  "value_model": {
+    "width": 64,
+    "heads": 4,
+    "layers": 3,
+    "use_cache_features": true
+  }
+}

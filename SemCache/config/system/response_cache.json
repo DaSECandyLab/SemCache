@@ -1,0 +1,11 @@
+{
+  "response_cache": {
+    "directory": ".cache/prompt-results",
+    "verify_on_second_use": false,
+    "max_disk_bytes": 268435456,
+    "max_memory_bytes": 16777216,
+    "max_entries": 32768,
+    "max_entry_bytes": 262144,
+    "max_correction_retries": 5
+  }
+}

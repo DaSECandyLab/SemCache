@@ -1,0 +1,11 @@
+{
+  "models": {
+    "endpoints": [
+      "http://127.0.0.1:30001",
+      "http://127.0.0.1:30002",
+      "http://127.0.0.1:30003"
+    ],
+    "max_output_tokens": 512
+  },
+  "teacher_config": "teacher.magpie.json"
+}

@@ -1,0 +1,41 @@
+{
+  "sampling": {
+    "operator_sample_rows": 20,
+    "max_operator_sample_rows": 50,
+    "selectivity_parallel_models": true,
+    "relational_sample_rows": 200,
+    "relational_cardinality_sample_rows": 2000,
+    "ensure_prefix_depth_rates": true,
+    "max_llm_requests": 128,
+    "max_accuracy_batches_per_operator": 1,
+    "accuracy_sample_units": 4,
+    "cpu_parallelism": 16,
+    "seed": 42,
+    "collect_calibration": true,
+    "history_capacity": 256,
+    "trace_timings": false,
+    "offline_statistics_dir": ".cache/prefix-statistics",
+    "adaptive_sketch": {
+      "cooccurrence_sample_rows": 8,
+      "sample_size": 4096,
+      "pilot_cells": 524288,
+      "max_depth": 4096,
+      "max_candidates": 64,
+      "max_anchors": 24,
+      "budget_bytes": 67108864,
+      "capacities": null,
+      "min_capacity": 256,
+      "exact_threshold": 256,
+      "seeds": [
+        17,
+        43,
+        97
+      ],
+      "tail_relative": 0.01,
+      "relative_error": 0.05,
+      "absolute_error": 0.5,
+      "retained_fraction": 0.1,
+      "fixed_grid": true
+    }
+  }
+}

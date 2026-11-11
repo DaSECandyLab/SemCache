@@ -1,0 +1,6 @@
+# 使用 Python 3.12 验证。规划搜索使用 CPU，价值模型更新可配置为 CUDA。
+# 仅使用 CPU 时可选安装源：https://download.pytorch.org/whl/cpu
+torch==2.13.0
+scipy>=1.13
+sqlglot==28.0.0
+tokenizers>=0.22,<1

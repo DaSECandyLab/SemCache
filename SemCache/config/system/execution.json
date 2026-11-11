@@ -1,0 +1,7 @@
+{
+  "execution": {
+    "cpu_parallelism": 16,
+    "max_concurrent_requests_per_model": 16,
+    "enforce_model_operator_order": false
+  }
+}

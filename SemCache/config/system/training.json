@@ -1,0 +1,65 @@
+{
+  "training": {
+    "dataset": "movies_nirvana",
+    "teacher_config": "teacher.magpie.training.json",
+    "workload_manifest": "../experiments/semcache/queries/workloads.json",
+    "reference_answers_dir": "../experiments/results/reference_answers/semcache/training",
+    "queries_per_dataset": {
+      "appstore": 9,
+      "estate": 15,
+      "movies_nirvana": 12,
+      "movies_sema": 3,
+      "tpch": 21
+    },
+    "train_families": null,
+    "max_relations": null,
+    "minimum_distinct_semantic_inputs": 128,
+    "minimum_result_rows": 30,
+    "pretrain_rounds": 1,
+    "rounds": 3,
+    "collect_only": false,
+    "evaluate_selected": false,
+    "feedback_cycle": [
+      {
+        "plan_generation": "heuristic_value",
+        "query_order": "shuffled"
+      },
+      {
+        "plan_generation": "value",
+        "query_order": "shuffled"
+      },
+      {
+        "plan_generation": "value",
+        "query_order": "shuffled"
+      }
+    ],
+    "feedback_rollouts_per_query": 2,
+    "repeats": 1,
+    "timeout": 300,
+    "minimum_timeout": 300,
+    "timeout_slack": 2,
+    "estimated_timeout": 1800,
+    "network_retry": {
+      "max_retries": 2,
+      "backoff_seconds": 5
+    },
+    "epochs": 64,
+    "round_update": {
+      "min_epochs": 96,
+      "max_epochs": 256,
+      "patience": 16,
+      "relative_min_delta": 0.03
+    },
+    "checkpoint_epochs": [
+      4,
+      8,
+      16,
+      32,
+      48,
+      64
+    ],
+    "seed": 17,
+    "exploration_fraction": 0.2,
+    "maximum_result_rows": 300
+  }
+}

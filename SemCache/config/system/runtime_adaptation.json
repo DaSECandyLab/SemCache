@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "beam_width": 12,
+  "device": "cuda",
+  "selectivity_threshold": 0.3,
+  "cache_threshold": 0.2,
+  "cache_trigger_fraction": 0.3333333333333333,
+  "epsilon": 1e-08,
+  "cache_predictor_checkpoint": "/home/lyp/project/experiments/results/semcache/model_training/train-20261107-180447/cache_prediction/cache_tokens_mlp.pt",
+  "max_switches": 2
+}

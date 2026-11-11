@@ -1,0 +1,16 @@
+{
+  "models": {
+    "candidate_models": [
+      "gemma4-e2b",
+      "gemma4-e4b",
+      "gemma4-12b"
+    ],
+    "endpoints": [
+      "http://127.0.0.1:30001",
+      "http://127.0.0.1:30002",
+      "http://127.0.0.1:30003"
+    ],
+    "max_output_tokens": 512
+  },
+  "teacher_config": "../teacher/teacher.example.json"
+}

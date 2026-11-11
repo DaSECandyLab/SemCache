@@ -1,0 +1,1 @@
+SELECT m.movie_id FROM movie m WHERE s'The {m.overview} suggests that the movie is an action movie.' AND s'The {m.overview} shows that the movie focuses on a central role.' AND s'The {m.overview} shows that the movie is based on historical events ';

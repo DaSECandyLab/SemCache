@@ -1,0 +1,1 @@
+SELECT ur.rowid AS id FROM user_reviews ur JOIN playstore p ON ur.App = p.App WHERE p.Category = 'GAME' AND s'{Translated_review} is a complete sentence and has informative content.' AND s'{Translated_review} is a positive user review.' AND s'{Translated_Review} shows that users have a good experience and fun with this app';

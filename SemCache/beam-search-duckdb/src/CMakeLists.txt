@@ -1,0 +1,54 @@
+# Production source list; target configuration belongs to the extension root.
+set(BEAM_SOURCES
+    extension/beam_extension.cpp
+    extension/profile_search.cpp
+    search/state_core.cpp
+    search/search_core.cpp
+    search/grouped_pruning.cpp
+    search/join_filter_cost.cpp
+    search/resident_driver.cpp
+    search/runtime_driver.cpp
+    sampling/common/parallel.cpp
+    sampling/sql/backend.cpp
+    sampling/statistics/statistics.cpp
+    sampling/statistics/relational_estimate.cpp
+    sampling/profile/environment.cpp
+    sampling/resident/sampler.cpp
+    sampling/resident/resample.cpp
+    sampling/resident/time_calibration.cpp
+    sampling/resident/initialization.cpp
+    sampling/resident/statistics.cpp
+    sampling/resident/export/statistics.cpp
+    sampling/resident/export/diagnostics.cpp
+    sampling/resident/export/configuration.cpp
+    sampling/resident/requests/grouping.cpp
+    sampling/resident/requests/execution.cpp
+    sampling/resident/requests/selection_parallel.cpp
+    sampling/resident/requests/selection.cpp
+    sampling/resident/join/join_output.cpp
+    sampling/resident/filter/filter_pool.cpp
+    sampling/resident/filter/filter_evidence.cpp
+    sampling/resident/evidence/shared_selectivity.cpp
+    sampling/resident/evidence/depth_selectivity.cpp
+    sampling/resident/evidence/expression_depths.cpp
+    sampling/resident/evidence/relational_fallback.cpp
+    sampling/resident/join/join_candidates.cpp
+    sampling/resident/join/join_selection.cpp
+    sampling/resident/join/join_probe_evidence.cpp
+    sampling/resident/join/join_incremental.cpp
+    sampling/resident/cache/history.cpp
+    sampling/resident/cache/cache_lineage.cpp
+    sampling/resident/survival/survival_fallback.cpp
+    sampling/resident/survival/survival_demand.cpp
+    sampling/resident/observations.cpp
+    sampling/resident/scheduling/state_services.cpp
+    sampling/resident/requests/quality_pipeline.cpp
+    sampling/resident/requests/quality.cpp
+    sampling/resident/requests/quality_inputs.cpp
+    sampling/resident/survival/sampled_survival.cpp)
+list(TRANSFORM BEAM_SOURCES PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
+list(APPEND BEAM_SOURCES "${SEM_MBED}/library/sha256.cpp"
+     "${SEM_MBED}/library/platform_util.cpp")
+set(BEAM_SOURCES
+    ${BEAM_SOURCES}
+    PARENT_SCOPE)

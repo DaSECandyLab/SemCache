@@ -1,0 +1,19 @@
+{
+  "reference_answers": {
+    "semcache": {
+      "planner": "heuristic_requests",
+      "layout": "GOTDF",
+      "teacher_config": "../teacher/teacher.example.json",
+      "parallelism": 16,
+      "cpu_parallelism": 16,
+      "verify_on_second_use": true,
+      "max_output_tokens": 2048,
+      "timeout_seconds": 1800
+    },
+    "systems": {
+      "teacher_config": "../teacher/teacher.example.json",
+      "parallelism": 16,
+      "verify_on_second_use": true
+    }
+  }
+}

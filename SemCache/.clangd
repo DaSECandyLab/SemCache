@@ -1,0 +1,7 @@
+CompileFlags:
+  CompilationDatabase: build/release
+---
+If:
+  PathMatch: optimizer/bindings/.*
+CompileFlags:
+  CompilationDatabase: build/release-bindings

@@ -1,0 +1,10 @@
+{
+  "base_url": "https://provider.example",
+  "model": "provider-model-name",
+  "api_key_env": "TEACHER_API_KEY",
+  "thinking": "disabled",
+  "reasoning_effort": "none",
+  "structured_output": false,
+  "max_output_tokens": 2048,
+  "connect_timeout_ms": 10000
+}

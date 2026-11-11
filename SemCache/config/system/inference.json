@@ -1,0 +1,10 @@
+{
+  "inference": {
+    "plan_generation": "heuristic_requests",
+    "preference": "fastest",
+    "reference_evaluation_run": "../experiments/results/semcache/evaluation/heuristic-requests-magpie-global-time-28-20261102-160955",
+    "reference_aggregate_manifest": "../experiments/results/semcache/accuracy/12b-vs-magpie-28-20261102/offline-replay/heuristic-requests-magpie-global-time-28-20261102-160955/manifest.json",
+    "device": "auto",
+    "gpu_batch_size": 512
+  }
+}

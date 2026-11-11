@@ -1,0 +1,17 @@
+{
+  "runtime": {
+    "python": ".venv-optimizer/bin/python",
+    "build": "build/release",
+    "native_bindings": "build/release-bindings/overlay",
+    "run_root": "../experiments/results/semcache/model_training",
+    "source_databases": {
+      "movies_nirvana": "../experiments/semcache/data/movies_nirvana.duckdb",
+      "movies_sema": "../experiments/semcache/data/movies_sema.duckdb",
+      "estate": "../experiments/semcache/data/estate.duckdb",
+      "appstore": "../experiments/semcache/data/appstore.duckdb",
+      "tpch": "../experiments/semcache/data/tpch.duckdb"
+    },
+    "max_cpu_threads": 16,
+    "shutdown_timeout_seconds": 15
+  }
+}

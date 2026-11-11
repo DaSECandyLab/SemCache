@@ -1,0 +1,12 @@
+{
+  "calibration": {
+    "operator_time": {
+      "sample_rows": 10,
+      "relational_repeats": 3,
+      "seed": 42
+    },
+    "sample_rows": 16,
+    "cohort_seed": 104729,
+    "cache_dir": ".cache/calibration"
+  }
+}

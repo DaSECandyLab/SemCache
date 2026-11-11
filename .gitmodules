@@ -1,0 +1,28 @@
+[submodule "duckdb"]
+	path = SemCache/third_party/duckdb
+	url = https://github.com/duckdb/duckdb
+	ignore = dirty
+[submodule "abacus"]
+	path = systems/abacus/vendor/abacus-upstream
+	url = https://github.com/mitdbg/palimpzest.git
+	ignore = dirty
+[submodule "nirvana"]
+	path = systems/nirvana/vendor/nirvana
+	url = https://github.com/JunHao-Zhu/nirvana.git
+	ignore = dirty
+[submodule "plop"]
+	path = systems/plop/vendor/morrila
+	url = https://github.com/DMoRanSky/Morrila.git
+	ignore = dirty
+[submodule "lotus"]
+	path = systems/lotus/lotus-upstream
+	url = https://github.com/lotus-data/lotus.git
+	ignore = dirty
+[submodule "moar"]
+	path = systems/moar/vendor/docetl-upstream
+	url = https://github.com/ucbepic/docetl.git
+	ignore = dirty
+[submodule "sema"]
+	path = systems/sema/vendor/sema-upstream
+	url = https://github.com/BITQiKangK/Sema.git
+	ignore = dirty

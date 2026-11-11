@@ -1,0 +1,11 @@
+{
+  "reference_answers": {
+    "semcache": {
+      "verify_on_second_use": true,
+      "parallelism": 16,
+      "cpu_parallelism": 16,
+      "max_output_tokens": 2048,
+      "timeout_seconds": 1800
+    }
+  }
+}

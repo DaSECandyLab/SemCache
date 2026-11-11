@@ -1,0 +1,7 @@
+{
+  "monitoring": {
+    "refresh_seconds": 10,
+    "health_interval_seconds": 120,
+    "stalled_after_seconds": 900
+  }
+}

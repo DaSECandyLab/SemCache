@@ -1,0 +1,24 @@
+{
+  "training": {
+    "workload_manifest": "semcache/queries/workloads.json",
+    "reference_answers_dir": "results/reference_answers/semcache/training",
+    "queries_per_dataset": {
+      "appstore": 9,
+      "estate": 15,
+      "movies_nirvana": 12,
+      "movies_sema": 3,
+      "tpch": 21
+    },
+    "pretrain_rounds": 1,
+    "feedback_rounds": 3,
+    "accuracy_minimums": [0.2, 0.5, 0.8],
+    "global_http_limit": 16,
+    "exploration_fraction": 0.2,
+    "timeout_seconds": 300,
+    "minimum_timeout_seconds": 300,
+    "clear_prompt_cache_each_round": true,
+    "clear_model_kv_cache_each_round": true,
+    "prompt_cache_enabled": false,
+    "verify_on_second_use": false
+  }
+}

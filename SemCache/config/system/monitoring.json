@@ -1,0 +1,8 @@
+{
+  "monitoring": {
+    "refresh_seconds": 10,
+    "health_interval": 120,
+    "stalled_after": 900,
+    "stop_query_after": 0
+  }
+}

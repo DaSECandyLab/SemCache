@@ -1,0 +1,18 @@
+{
+  "learning": {
+    "device": "cuda",
+    "threads": 16,
+    "batch_size": 64,
+    "learning_rate": 0.0003,
+    "warmup_fraction": 0.1,
+    "patience": 3,
+    "balance_datasets": true,
+    "discount": 1,
+    "time_scale": 1,
+    "accuracy_weight": 1,
+    "censor_weight": 1,
+    "estimated_censor_weight": 0.1,
+    "complete_state_weight": 0.5,
+    "partial_state_weight": 0.5
+  }
+}

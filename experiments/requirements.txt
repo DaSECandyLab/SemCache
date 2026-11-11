@@ -1,0 +1,6 @@
+# Shared input, SQL inspection and controlled execution dependencies.
+# Native framework packages belong in systems/<system> environments.
+duckdb>=1.4,<2
+pandas>=2.2,<3
+pyarrow>=18
+sqlglot>=27
