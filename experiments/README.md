@@ -1,63 +1,57 @@
-# 实验
+# Experiments
 
-`experiments/` 只保存实验编排代码、配置和结果索引。核心优化器在
-`SemCache/optimizer/`，共同 SQL 与数据在 `benchmarks/`。
+`experiments/` contains orchestration code, experiment manifests, validation tools, and result artifacts. The core optimizer lives in `SemCache/optimizer/` and shared SQL/data live in `benchmarks/`.
 
-## 目录
+## Layout
 
-| 目录 | 内容 |
+| Directory | Contents |
 |---|---|
-| `semcache/` | SemCache 查询、采集、训练、参考答案和监控 |
-| `system_comparison/` | PLOP、Sema、Nirvana、LOTUS、Abacus、MOAR 的对比调度 |
-| `validation/` | 查询结构、绑定和运行时契约检查 |
-| `results/` | 运行生成的报告、日志和模型检查点 |
-| `core/` | 实验通用的路径、原子写入和进程工具 |
+| `semcache/` | SemCache training, checkpoint evaluation, reference answers, and monitoring |
+| `system_comparison/` | Cross-system comparison runner for PLOP, Sema, Nirvana, LOTUS, Abacus, and MOAR |
+| `validation/` | Structural SQL, binding, and runtime contract checks |
+| `results/` | Generated reports, logs, and checkpoints (untracked) |
+| `core/` | Shared path, atomic-write, and process utilities |
 
-## 配置
+## Configuration
 
-系统、训练、评测和监控配置均位于 `SemCache/config/system/`，按 `SemCache/config/system/config.json` 的 `include`
-组合；Teacher 模板位于 `SemCache/config/teacher/teacher.example.json`，密钥只从环境变量读取。
+System, training, evaluation, and monitoring settings live in `SemCache/config/system/` and are composed via `SemCache/config/system/config.json`. Teacher templates live in `SemCache/config/teacher/teacher.example.json` (credentials are read from environment variables). See [SemCache/config/README.md](../SemCache/config/README.md) for details.
 
-## SemCache 训练
+## SemCache Training
 
-训练查询位于 `semcache/queries/`，源库位于 `semcache/data/`，参考答案位于
-`semcache/reference_answers/`。训练流程是：收集查询计划与运行标签，合并校准统计，训练
-value model，再用独立测试查询评测。监控脚本维护采集、训练和损失报告。
+Training queries live in `semcache/queries/`, source databases in `semcache/data/`, and reference answers in `semcache/reference_answers/`. The training pipeline collects plan rollouts and execution labels, merges global calibration statistics, fits the graph value model, and evaluates checkpoints on heldout queries.
 
 ```sh
 PYTHONPATH=SemCache/optimizer:experiments/semcache:. \
   SemCache/.venv-optimizer/bin/python \
-  experiments/semcache/training/launcher.py
+  experiments/semcache/training/launcher.py --run experiments/results/semcache/model_training/train-run
 ```
 
-## 跨系统对比
+## Cross-System Comparison
 
-当前对比使用 5 个数据集、20 条查询和 6 个系统。调度器、后端、执行器、模型传输、报告
-和准确率代码均在 `system_comparison/` 中；结果写入 `results/system_comparison/`。
-系统的原生优化器和模型适配保持在各自 `systems/` 目录。
+Cross-system comparisons evaluate 6 systems across 5 datasets and 20 queries. Scheduling, data loading, SQL execution, backend adapters, transport logging, reporting, and accuracy scoring live in `system_comparison/` (results are written to `results/system_comparison/`), while each system's native optimizer stays in `systems/`.
 
 ```sh
 PYTHONPATH=. SemCache/.venv-optimizer/bin/python \
   -m experiments.system_comparison --help
 ```
 
-## 检查
+| Submodule | Responsibility |
+|---|---|
+| `scheduling/` | Campaign lifecycle and task orchestration |
+| `data/` | Dataset and input boundary management |
+| `execution/` | SQL execution and result capture |
+| `backends/` | Per-system execution adapters |
+| `transport/` | Model request gateway and prompt caching |
+| `reporting/` | Progress and timing reports |
+| `accuracy/` | Reference scoring (multiset matching for fixed fields, Teacher judge for free text, relative error for aggregates) |
+| `diagnostics/` | Model-free structural checks |
 
-结构审计不请求模型；它只核对查询字段、依赖和关系边界：
+Errors, timeouts, and unsupported operators are reported explicitly and are never coerced to empty results.
+
+## Validation
+
+Run structural contract validation without invoking any LLM:
 
 ```sh
 PYTHONPATH=. SemCache/.venv-optimizer/bin/python -m experiments.validation
 ```
-
-训练、评测和对比结果均以运行目录为单位保存。结果中的执行明细和模型日志是实验产物，
-不与源代码说明混写。
-
-## 跨系统代码分区
-
-跨系统调度代码位于 `system_comparison/`：`scheduling/` 管理任务，`data/` 管理输入，
-`execution/` 负责 SQL 与结果捕获，`backends/` 适配各系统，`transport/` 记录模型请求，
-`reporting/` 生成进度和计时，`accuracy/` 负责参考答案评分，`diagnostics/` 提供无模型检查。
-系统原生优化器仍在 `systems/`，结果写入 `results/system_comparison/`。
-
-系统执行和参考答案评分分开；固定字段先做多重集匹配，文本字段交 Teacher 判断，聚合值按
-相对误差评分。错误、超时和不支持状态不会伪造成空结果。

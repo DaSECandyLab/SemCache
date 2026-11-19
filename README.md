@@ -52,7 +52,7 @@ Download the [datasets](https://drive.google.com/file/d/1jjHYS8-VLoP8TDs1XTEnV7s
 | TPC-H | 7 | 21 |
 | **Total** | **20** | **60** |
 
-Prepare the benchmark databases under `benchmarks/databases/semcache/` using the schemas in the [benchmark documentation](benchmarks/README.md#独立数据库). Configure training database paths in `SemCache/config/system/runtime.json`, then import the training sources:
+Prepare the benchmark databases under `benchmarks/databases/semcache/` using the schemas in the [benchmark documentation](benchmarks/README.md#per-system-databases). Configure training database paths in `SemCache/config/system/runtime.json`, then import the training sources:
 
 ```bash
 SemCache/.venv-optimizer/bin/python -m training.source_data --rebuild
@@ -212,10 +212,10 @@ SemCache/.venv-optimizer/bin/python -m training.evaluation.checkpoint \
   --global-http-limit 16
 ```
 
-- `--heldout`: evaluate the test queries.
+- `--heldout`: evaluate the 20 held-out test queries.
 - `--cases`: select accuracy targets from `min-20`, `min-50`, and `min-80`.
 - `--checkpoint-round N`: select a training round.
-- `--global-http-limit`: set total HTTP concurrency for local models.
+- `--global-http-limit`: cap total HTTP concurrency across locally deployed candidate models (external Teacher concurrency is configured separately in [SemCache/config/README.md](SemCache/config/README.md)).
 
 Each accuracy target runs across the full query set. Evaluation enables the prompt result cache, disables second-use verification, and resets caches before each target group. Add `--preserve-cache` to retain caches across groups.
 
@@ -289,7 +289,7 @@ experiments/
 systems/                  Comparison system submodules
 ```
 
-Core configuration is composed through `SemCache/config/system/config.json` (and Teacher templates live in `SemCache/config/teacher/teacher.example.json`). Runtime paths in the core configuration are relative to `SemCache/`; `include` paths are relative to the containing configuration file.
+Core configuration is composed through `SemCache/config/system/config.json` (documented in [SemCache/config/README.md](SemCache/config/README.md)), with external Teacher templates under `SemCache/config/teacher/teacher.example.json`. Runtime paths in the core configuration are relative to `SemCache/`; `include` paths are relative to the containing configuration file.
 
 ## Development
 

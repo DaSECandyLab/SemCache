@@ -1,46 +1,47 @@
 # SemCache
 
-SemCache 是面向前缀缓存感知语义查询处理的 DuckDB 研究系统。关系算子和语义
-Filter、Projection、Join 在同一执行框架中运行；Python 优化器负责计划、采样、特征和
-value model，C++ 扩展负责搜索与执行状态，SGLang 提供模型服务。
+SemCache is a DuckDB-based semantic query engine with prefix-cache awareness. Relational operators and semantic Filter, Projection, and Join operators execute within one engine: the Python optimizer manages plan states, sampling, feature encoding, and the value model, C++ extensions handle search and execution state, and SGLang serves the candidate LLMs.
 
-## 组件
+## Components
 
-| 路径 | 内容 |
+| Path | Description |
 |---|---|
-| `semantic-duckdb/` | DuckDB 语义扩展、提示词、模型通信和运行时 |
-| `beam-search-duckdb/` | Beam search、采样、统计和缓存历史扩展 |
-| `optimizer/` | 计划状态、特征、采样、搜索和训练接口 |
-| `statistics/` | bottom-k 前缀统计和跨字段摘要 |
-| `config/` | 核心搜索、采样、模型和 Teacher 配置 |
-| `../experiments/` | 训练、参考答案、跨系统对比和结果 |
-| `../benchmarks/` | 共同 SQL、数据和数据库 |
-| `../sglang/` | 模型服务启动和缓存补丁 |
+| `semantic-duckdb/` | DuckDB semantic operators, prompt rendering, HTTP transport, and runtime |
+| `beam-search-duckdb/` | Native Beam search, sampling, statistics, and cache history extension |
+| `optimizer/` | Planning service, state representation, features, sampling, search, and training |
+| `statistics/` | Coordinated bottom-k prefix sketches and cross-field summaries |
+| `config/` | Modular system, search, execution, and Teacher configurations ([config/README.md](config/README.md)) |
+| `../experiments/` | Training, reference collection, cross-system comparison, and results |
+| `../benchmarks/` | Shared SQL workloads, datasets, and databases |
+| `../sglang/` | Model serving launchers, SSH tunnel scripts, and prefix-cache patches |
 
-## 构建
+## Build
 
 ```sh
-git submodule update --init --recursive
-python3 -m venv .venv-tools
-python3 -m venv .venv-optimizer
+git submodule update --init --recursive -- third_party/duckdb
+python3.12 -m venv .venv-tools
+python3.12 -m venv .venv-optimizer
 .venv-optimizer/bin/python -m pip install -r optimizer/requirements.txt \
   --extra-index-url https://download.pytorch.org/whl/cpu
 make release
 ```
 
-`make release` 构建 DuckDB、语义扩展、beam-search 扩展和 Python 绑定；正常查询、采样和
-训练使用 Release 构建。格式与静态检查：
+`make release` builds DuckDB, `semantic.duckdb_extension`, `beam_search.duckdb_extension`, `semcache_statistics_build`, and the native Python bindings. Normal queries, sampling, and training use the Release build.
+
+Quality checks and tests:
 
 ```sh
 make format-check
 make optimizer-typecheck
+PYTHONPATH=optimizer .venv-optimizer/bin/pytest -q tests/
 git diff --check
 ```
 
-## 运行
+## Usage
 
-模型服务配置与端点见 `../sglang/README.md`。优化器入口、训练入口和评测入口见
-`../experiments/README.md`；共同 SQL 结构见 `../benchmarks/README.md`。
+- Model serving and endpoints: [../sglang/README.md](../sglang/README.md)
+- Configuration reference: [config/README.md](config/README.md)
+- Training, reference collection, and evaluation: [../experiments/README.md](../experiments/README.md)
+- Workloads and databases: [../benchmarks/README.md](../benchmarks/README.md)
 
-前缀统计表示可复用潜力，不等同于在线 KV 命中。bottom-k 的 SHA-256 是统计排名算法的一部分，
-与文件完整性校验无关。
+Prefix statistics estimate reuse potential rather than guaranteeing online KV cache hits. SHA-256 hashing inside bottom-k sketches is part of the statistical ranking algorithm and is unrelated to file integrity verification.
