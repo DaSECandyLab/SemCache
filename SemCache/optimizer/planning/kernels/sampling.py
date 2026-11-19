@@ -319,12 +319,20 @@ def prepare_native(factory, problem):
         sources, populations, direct_sources = load_direct_sources(
             problem, factory.config, lambda rid, sql: backend.load(str(rid), sql)
         )
-        offline_statistics = factory.offline_statistics(problem)
-        for relation in populations:
-            if str(relation) in offline_statistics:
-                populations[relation] = offline_statistics[str(relation)][
-                    "cooccurrence"
-                ]["row_count"]
+        offline_files = None
+        offline_statistics = None
+        if hasattr(factory, "offline_statistics_files"):
+            offline_files, row_counts = factory.offline_statistics_files(problem)
+            for relation in populations:
+                if str(relation) in row_counts:
+                    populations[relation] = row_counts[str(relation)]
+        else:
+            offline_statistics = factory.offline_statistics(problem)
+            for relation in populations:
+                if str(relation) in offline_statistics:
+                    populations[relation] = offline_statistics[str(relation)][
+                        "cooccurrence"
+                    ]["row_count"]
         ingress_history = factory.history.snapshot()
         captured_now = time.time()
         for entry in ingress_history:
@@ -348,7 +356,10 @@ def prepare_native(factory, problem):
         config["model_loads"] = {
             name: list(factory.history.load(name)) for name in problem.catalog
         }
-        config["offline_statistics"] = offline_statistics
+        if offline_files is not None:
+            config["offline_statistics_files"] = offline_files
+        else:
+            config["offline_statistics"] = offline_statistics
         config["history_capacity"] = factory.history.capacity
         if "history_now" in factory.config:
             config["history_now"] = factory.config["history_now"]
@@ -356,7 +367,7 @@ def prepare_native(factory, problem):
         proxy = NativeSamplingProxy(sampler, backend, config)
         # contextmanager generators keep locals alive across yield. The native
         # constructor has copied this ingress; release Python's source banks.
-        del config, sources, direct_sources, ingress_history, offline_statistics
+        del config, sources, direct_sources, ingress_history, offline_statistics, offline_files
         problem.history_provider = sampler.history
         proxy.sync_profile(problem)
         yield proxy

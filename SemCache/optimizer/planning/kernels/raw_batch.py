@@ -326,7 +326,6 @@ class RawFeatureContext:
 
         if (
             type(model) is not PlanValueModel
-            or model.encoder.words.weight.device.type != "cuda"
             or set(model.encoder.feature_groups)
             not in (set(FEATURE_GROUPS), set(FEATURE_GROUPS) - {"cache"})
             or "cache" not in model.encoder.feature_groups

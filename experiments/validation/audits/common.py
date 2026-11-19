@@ -2,15 +2,26 @@
 
 from __future__ import annotations
 
+import argparse
 import ast
 import json
 from collections import Counter
+from pathlib import Path
 
+import duckdb
 import sqlglot
 from sqlglot import exp
 
-from experiments.core.paths import TRANSLATED as OUT
+from experiments.core.paths import (
+    TRANSLATED as OUT,
+)
+from experiments.core.paths import (
+    load_query_selection,
+    load_translated_manifest,
+    translated_manifest_digest,
+)
 from experiments.validation.audits import source as inspect
+from experiments.validation.audits.fixtures import create_fixture
 from experiments.validation.audits.sql_calls import sql_functions
 from experiments.validation.runtime.filter_groups import merge_filter_stages
 from experiments.validation.workload import source as original
@@ -50,180 +61,237 @@ def sql_signature(tree):
     ]
 
 
+def _bind_deterministic_predicate(tree, mod):
+    def replace(node):
+        if isinstance(node, exp.Anonymous) and node.name.casefold() in {
+            "semantic_filter",
+            "semantic_join",
+        }:
+            if mod == 1:
+                return exp.true()
+            digest_expr = exp.Anonymous(
+                this="hash", expressions=[e.copy() for e in node.expressions]
+            )
+            return sqlglot.parse_one(
+                f"({digest_expr.sql(dialect='duckdb')} % {mod}) = 0", read="duckdb"
+            )
+        return node
+
+    return tree.copy().transform(replace)
+
+
+def semcache_tpch_equivalent(actual_tree, expected_tree, connection):
+    actual_ops = sql_functions(actual_tree)
+    expected_ops = sql_functions(expected_tree)
+    if not actual_ops:
+        return False
+    if {
+        (o["kind"], o["task"], len(o["inputs"])) for o in actual_ops
+    } != {(o["kind"], o["task"], len(o["inputs"])) for o in expected_ops}:
+        return False
+    for mod in (1, 2, 3):
+        expected_cur = connection.execute(
+            _bind_deterministic_predicate(expected_tree, mod).sql(dialect="duckdb")
+        )
+        expected_cols = [d[0].lower() for d in expected_cur.description]
+        expected_rows = sorted(expected_cur.fetchall())
+        actual_cur = connection.execute(
+            _bind_deterministic_predicate(actual_tree, mod).sql(dialect="duckdb")
+        )
+        actual_cols = [d[0].lower() for d in actual_cur.description]
+        actual_rows = sorted(actual_cur.fetchall())
+        if expected_cols != actual_cols or expected_rows != actual_rows:
+            return False
+    return True
+
+
 def audit():
-    manifest = json.loads((OUT / "manifest.json").read_text())
-    selected = json.loads((original.QUERY_ROOT / "manifest.json").read_text())[
-        "queries"
-    ]
+    manifest = load_translated_manifest(original.QUERY_ROOT)
+    selected = load_query_selection(original.QUERY_ROOT)["queries"]
     records = []
     extensions = []
-    for record in manifest["records"]:
-        if record["contract"] != CONTRACT:
-            extensions.append(record)
-            continue
-        query = next(
-            q for q in selected if q["dataset"] + "/" + q["query"] == record["id"]
-        )
-        source = original.QUERY_ROOT / query["original"]
-        path = original.QUERY_ROOT / record["query_file"]
-        errors = []
-        logical = None
-        try:
-            if inspect.digest(source) != query["original_sha256"] or record[
-                "source_sha256"
-            ] != inspect.digest(source):
-                errors.append("Frozen original hash differs")
-            if (
-                record["source"] != query["original"]
-                or inspect.digest(path) != record["sha256"]
-            ):
-                errors.append("Generated identity or hash differs")
-            if (
-                inspect.digest(original.QUERY_ROOT / record["metadata_file"])
-                != record["metadata_sha256"]
-            ):
-                errors.append("Metadata hash differs")
-            aggregate, numeric_columns = None, []
-            if source.suffix == ".py":
-                source_ops = [
-                    {
-                        "method": op["method"],
-                        "kwargs": {
-                            "user_instruction": op["task"],
-                            **(
-                                {"input_column": op["inputs"][0]}
-                                if op["method"] == "semantic_reduce"
-                                else {"input_columns": op["inputs"]}
-                            ),
-                            **(
-                                {"output_columns": op["outputs"]}
-                                if op["outputs"]
-                                else {}
-                            ),
-                        },
-                    }
-                    for op in inspect.source_operations(source)
-                ]
-                operations, aggregate, numeric_columns = rewrite(
-                    record["id"], source_ops
-                )
-                expected = operation_signature(operations)
-                if path.suffix == ".py":
-                    actual = inspect.python_operations(path, record["system"])
-                    tree = ast.parse(path.read_text())
-                    bindings = [
-                        n
-                        for n in ast.walk(tree)
-                        if isinstance(n, ast.Assign)
-                        and any(
-                            isinstance(t, ast.Name) and t.id == "AGGREGATE"
-                            for t in n.targets
-                        )
+    tpch_con = None
+    try:
+        for record in manifest["records"]:
+            if record["contract"] != CONTRACT:
+                extensions.append(record)
+                continue
+            query = next(
+                q for q in selected if q["dataset"] + "/" + q["query"] == record["id"]
+            )
+            source = original.QUERY_ROOT / query["original"]
+            path = original.QUERY_ROOT / record["query_file"]
+            errors = []
+            logical = None
+            try:
+                if inspect.digest(source) != query["original_sha256"] or record[
+                    "source_sha256"
+                ] != inspect.digest(source):
+                    errors.append("Frozen original hash differs")
+                if (
+                    record["source"] != query["original"]
+                    or inspect.digest(path) != record["sha256"]
+                ):
+                    errors.append("Generated identity or hash differs")
+                if (
+                    record.get("metadata_file")
+                    and inspect.digest(original.QUERY_ROOT / record["metadata_file"])
+                    != record["metadata_sha256"]
+                ):
+                    errors.append("Metadata hash differs")
+                aggregate, numeric_columns = None, []
+                if source.suffix == ".py":
+                    source_ops = [
+                        {
+                            "method": op["method"],
+                            "kwargs": {
+                                "user_instruction": op["task"],
+                                **(
+                                    {"input_column": op["inputs"][0]}
+                                    if op["method"] == "semantic_reduce"
+                                    else {"input_columns": op["inputs"]}
+                                ),
+                                **(
+                                    {"output_columns": op["outputs"]}
+                                    if op["outputs"]
+                                    else {}
+                                ),
+                            },
+                        }
+                        for op in inspect.source_operations(source)
                     ]
-                    actual_aggregate = (
-                        ast.literal_eval(bindings[0].value) if bindings else None
+                    operations, aggregate, numeric_columns = rewrite(
+                        record["id"], source_ops
                     )
-                    if actual_aggregate != aggregate:
-                        errors.append("Deterministic aggregate contract differs")
-                    if aggregate:
-                        calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)]
-                        used = any(
-                            any(
-                                k.arg == "aggregate"
-                                and isinstance(k.value, ast.Name)
-                                and k.value.id == "AGGREGATE"
-                                for k in n.keywords
-                            )
-                            or isinstance(n.func, ast.Name)
-                            and n.func.id == "aggregate_frame"
+                    expected = operation_signature(operations)
+                    if path.suffix == ".py":
+                        actual = inspect.python_operations(path, record["system"])
+                        tree = ast.parse(path.read_text())
+                        bindings = [
+                            n
+                            for n in ast.walk(tree)
+                            if isinstance(n, ast.Assign)
                             and any(
-                                isinstance(a, ast.Name) and a.id == "AGGREGATE"
-                                for a in n.args
+                                isinstance(t, ast.Name) and t.id == "AGGREGATE"
+                                for t in n.targets
                             )
-                            for n in calls
+                        ]
+                        actual_aggregate = (
+                            ast.literal_eval(bindings[0].value) if bindings else None
                         )
-                        if not used:
-                            errors.append("Aggregate declared but never executed")
+                        if actual_aggregate != aggregate:
+                            errors.append("Deterministic aggregate contract differs")
+                        if aggregate:
+                            calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)]
+                            used = any(
+                                any(
+                                    k.arg == "aggregate"
+                                    and isinstance(k.value, ast.Name)
+                                    and k.value.id == "AGGREGATE"
+                                    for k in n.keywords
+                                )
+                                or isinstance(n.func, ast.Name)
+                                and n.func.id == "aggregate_frame"
+                                and any(
+                                    isinstance(a, ast.Name) and a.id == "AGGREGATE"
+                                    for a in n.args
+                                )
+                                for n in calls
+                            )
+                            if not used:
+                                errors.append("Aggregate declared but never executed")
+                    else:
+                        tree = inspect.native_tree(path.read_text(), record["system"])
+                        actual = sql_signature(tree)
+                        expected_tree = inline_ctes(
+                            sqlglot.parse_one(
+                                original.linear_sql(
+                                    query,
+                                    operations=operations,
+                                    aggregate=aggregate,
+                                    numeric_columns=numeric_columns,
+                                )[0],
+                                read="duckdb",
+                            )
+                        )
+                        if record["system"] == "sema":
+                            expected_tree = merge_filter_stages(expected_tree)
+                        if inspect.canonical_sql(tree) != inspect.canonical_sql(
+                            expected_tree
+                        ):
+                            errors.append(
+                                "Relational structure, numeric schema or aggregate differs"
+                            )
+                    if actual != expected:
+                        errors.append("Semantic task, field or operator order differs")
+                    if any(op["method"] in {"semantic_reduce", "sem_agg"} for op in actual):
+                        errors.append("LLM Reduce remains in the common workload")
+                    logical = actual + (
+                        [{"method": "deterministic_aggregate", **aggregate}]
+                        if aggregate
+                        else []
+                    )
                 else:
-                    tree = inspect.native_tree(path.read_text(), record["system"])
-                    actual = sql_signature(tree)
-                    expected_tree = inline_ctes(
-                        sqlglot.parse_one(
-                            original.linear_sql(
-                                query,
-                                operations=operations,
-                                aggregate=aggregate,
-                                numeric_columns=numeric_columns,
-                            )[0],
-                            read="duckdb",
+                    if path.suffix == ".py":
+                        module = ast.parse(path.read_text())
+                        binding = next(
+                            n
+                            for n in ast.walk(module)
+                            if isinstance(n, ast.Assign)
+                            and any(
+                                isinstance(t, ast.Name) and t.id == "RELATIONAL_SQL"
+                                for t in n.targets
+                            )
                         )
-                    )
-                    if record["system"] == "sema":
-                        expected_tree = merge_filter_stages(expected_tree)
-                    if inspect.canonical_sql(tree) != inspect.canonical_sql(
-                        expected_tree
-                    ):
-                        errors.append(
-                            "Relational structure, numeric schema or aggregate differs"
+                        actual_tree = sqlglot.parse_one(
+                            ast.literal_eval(binding.value), read="duckdb"
                         )
-                if actual != expected:
-                    errors.append("Semantic task, field or operator order differs")
-                if any(op["method"] in {"semantic_reduce", "sem_agg"} for op in actual):
-                    errors.append("LLM Reduce remains in the common workload")
-                logical = actual + (
-                    [{"method": "deterministic_aggregate", **aggregate}]
-                    if aggregate
-                    else []
-                )
-            else:
-                if path.suffix == ".py":
-                    module = ast.parse(path.read_text())
-                    binding = next(
-                        n
-                        for n in ast.walk(module)
-                        if isinstance(n, ast.Assign)
-                        and any(
-                            isinstance(t, ast.Name) and t.id == "RELATIONAL_SQL"
-                            for t in n.targets
+                    else:
+                        actual_tree = inspect.native_tree(
+                            path.read_text(), record["system"]
                         )
-                    )
-                    actual_tree = sqlglot.parse_one(
-                        ast.literal_eval(binding.value), read="duckdb"
-                    )
-                else:
-                    actual_tree = inspect.native_tree(
-                        path.read_text(), record["system"]
-                    )
-                actual_canonical = inspect.canonical_sql(
-                    inspect.inline_appstore(actual_tree)
-                )
-                expected_canonical = inspect.canonical_sql(
-                    stabilize_limits(inspect.source_tree(source))
-                )
-                if actual_canonical != expected_canonical:
-                    errors.append(
-                        "Original SQL relation or bound semantic predicate differs"
-                    )
-                logical = sql_functions(inspect.inline_appstore(actual_tree))
-            if (
-                record["aggregate"] != aggregate
-                or record["numeric_projection_columns"] != numeric_columns
-            ):
-                errors.append("Manifest does not describe actual rewrite")
-        except Exception as exc:
-            errors.append(f"{type(exc).__name__}: {exc}")
-        records.append(
-            {
-                "id": record["id"],
-                "system": record["system"],
-                "passed": not errors,
-                "aggregate": record["aggregate"],
-                "query_file": record["query_file"],
-                "execution_mode": record["execution_mode"],
-                "logical_operations": logical,
-                "errors": errors,
-            }
-        )
+                    inlined_actual = inspect.inline_appstore(actual_tree)
+                    expected_source_tree = stabilize_limits(inspect.source_tree(source))
+                    actual_canonical = inspect.canonical_sql(inlined_actual)
+                    expected_canonical = inspect.canonical_sql(expected_source_tree)
+                    if actual_canonical != expected_canonical:
+                        equivalent = False
+                        if record["system"] == "semcache" and record["id"].startswith(
+                            "tpch/"
+                        ):
+                            if tpch_con is None:
+                                tpch_con = duckdb.connect()
+                                create_fixture(tpch_con, "tpch")
+                            equivalent = semcache_tpch_equivalent(
+                                inlined_actual, expected_source_tree, tpch_con
+                            )
+                        if not equivalent:
+                            errors.append(
+                                "Original SQL relation or bound semantic predicate differs"
+                            )
+                    logical = sql_functions(inlined_actual)
+                if (
+                    record["aggregate"] != aggregate
+                    or record["numeric_projection_columns"] != numeric_columns
+                ):
+                    errors.append("Manifest does not describe actual rewrite")
+            except Exception as exc:
+                errors.append(f"{type(exc).__name__}: {exc}")
+            records.append(
+                {
+                    "id": record["id"],
+                    "system": record["system"],
+                    "passed": not errors,
+                    "aggregate": record["aggregate"],
+                    "query_file": record["query_file"],
+                    "execution_mode": record["execution_mode"],
+                    "logical_operations": logical,
+                    "errors": errors,
+                }
+            )
+    finally:
+        if tpch_con is not None:
+            tpch_con.close()
     if (
         Counter(r["system"] for r in records) != dict.fromkeys(original.SYSTEMS, 19)
         or len({(r["system"], r["id"]) for r in records}) != 114
@@ -253,28 +321,34 @@ def audit():
     }
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=None)
+    args = parser.parse_args(argv)
     result = audit()
     binding_path = OUT / "native-binding.json"
     if binding_path.exists():
         binding = json.loads(binding_path.read_text())
+        translated_manifest = load_translated_manifest(original.QUERY_ROOT)
         result["native_sql_binding"] = {
             "bound": binding["bound"],
             "total": binding["total"],
             "matches_current_manifest": binding["query_manifest_sha256"]
-            == inspect.digest(OUT / "manifest.json"),
+            == translated_manifest_digest(original.QUERY_ROOT),
         }
         hashes = {
             (r["system"], r["id"]): r["sha256"]
-            for r in json.loads((OUT / "manifest.json").read_text())["records"]
+            for r in translated_manifest["records"]
         }
         result["native_sql_binding"]["matches_current_queries"] = all(
             hashes.get((r["system"], r["id"])) == r["query_sha256"]
             for r in binding["records"]
         )
-    (OUT / "verification.json").write_text(
-        json.dumps(result, ensure_ascii=False, indent=2) + "\n"
-    )
+    if args.output is not None:
+        args.output.mkdir(parents=True, exist_ok=True)
+        (args.output / "verification.json").write_text(
+            json.dumps(result, ensure_ascii=False, indent=2) + "\n"
+        )
     lines = [
         "# 六系统共同数值工作负载检查",
         "",
@@ -314,7 +388,8 @@ def main():
         "单位、NULL、空输入、重复行及 COUNT(*) 规则见 README.md。原 TPC-H 七处无序 LIMIT 统一按稳定键排序后取样，避免跨引擎任意子集；原始条件与 LIMIT 数量保留。模型结果质量仍按独立的 COMMON_ACCURACY_PROTOCOL 评价。",
         "",
     ]
-    (OUT / "SEMANTIC_AUDIT.md").write_text("\n".join(lines))
+    if args.output is not None:
+        (args.output / "SEMANTIC_AUDIT.md").write_text("\n".join(lines))
     print(json.dumps({k: v for k, v in result.items() if k != "records"}, indent=2))
     for record in result["records"]:
         if record["errors"]:

@@ -27,7 +27,8 @@ const resident_detail::FilterBinding *
 NativeSampler::Impl::filter_binding(const Json &op) {
   if (selectivity_estimator == "legacy" ||
       op.value("kind", std::string()) != "SEMANTIC_FILTER" ||
-      (settings.value("selectivity_parallel_models", true) && models(op).size() > 1))
+      (settings.value("selectivity_parallel_models", true) &&
+       models(op).size() > 1))
     return nullptr;
   const Id id = op.at("operator_id");
   auto found = filter_bindings.find(id);
@@ -199,41 +200,4 @@ void NativeSampler::Impl::record_filter(const NodePtr &node, const Json &op,
                    selection.decisions->accepted(i));
   }
 }
-
-std::optional<resident_detail::ConditionEstimate>
-NativeSampler::Impl::conditional_selectivity(const NodePtr &node,
-                                             const Json &op,
-                                             const StateData &data,
-                                             CoreObservation &core) {
-  const auto *binding = filter_binding(op);
-  if (!binding || node->children.size() != 1 || node->relations.size() != 1)
-    return std::nullopt;
-  auto &pool = filter_pool(binding->relation);
-  std::vector<std::string> conditions;
-  auto id = node->children[0];
-  while (true) {
-    const auto &ancestor = data.observations.at(id)->core->node;
-    if (!ancestor->operator_id)
-      break;
-    if (ancestor->children.size() != 1 || ancestor->relations.size() != 1)
-      return std::nullopt;
-    const auto &stage = execution_op(data.state, ancestor);
-    if (const auto *a = filter_binding(stage)) {
-      if (a->relation != binding->relation)
-        return std::nullopt;
-      conditions.push_back(a->task);
-    } else if (fixed_relation_filter(stage)) {
-      conditions.push_back("relation-filter:" +
-                           std::to_string(*ancestor->operator_id));
-    } else
-      return std::nullopt;
-    id = ancestor->children[0];
-  }
-  core.condition_pool = binding->relation;
-  core.condition_version = pool.version();
-  PhaseTimer timer(phase_metrics, "conditional_selectivity", trace_timings,
-                   true);
-  return pool.estimate(binding->task, conditions, input_samples,
-                       selectivity_estimator == "ancestor");
-}
-}
+} // namespace semcache::sampling

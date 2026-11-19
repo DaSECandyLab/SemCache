@@ -1,7 +1,6 @@
 """Bounded startup probes; generated training queries still read full tables."""
 
 from planning.backends.execution import identifier, quote
-
 from training.source_data import CORPORA
 
 FILTER_TASK = "Does text {0} describe a concrete action, activity, or event? Metadata {1} only provides context."

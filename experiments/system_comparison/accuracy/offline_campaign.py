@@ -11,11 +11,25 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from experiments.core.io import digest, save
-
-from .aggregates import aggregate_deviation
-from .artifacts import read, timing_fields, typed_result
-from .matching import finish_match, prepare_match
-from .pairwise import deviation, load_answers, offline_result, pct, table
+from experiments.system_comparison.accuracy.reporting.aggregates import (
+    aggregate_deviation,
+)
+from experiments.system_comparison.accuracy.reporting.artifacts import (
+    read,
+    timing_fields,
+    typed_result,
+)
+from experiments.system_comparison.accuracy.scoring.matching import (
+    finish_match,
+    prepare_match,
+)
+from experiments.system_comparison.accuracy.scoring.pairwise import (
+    deviation,
+    load_answers,
+    offline_result,
+    pct,
+    table,
+)
 
 
 def compare_result(actual, expected, query, aggregate):

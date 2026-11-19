@@ -10,7 +10,7 @@ from sqlglot import exp
 
 from experiments.core.io import digest as digest
 from experiments.core.io import save as save
-from experiments.core.paths import ROOT
+from experiments.core.paths import ROOT, load_query_selection, query_selection_digest
 
 TABLES = {
     "appstore": ("user_reviews", "playstore"),
@@ -154,7 +154,7 @@ def prepare(output, *, root=ROOT):
     if existing.exists():
         manifest = json.loads(existing.read_text())
         if (
-            digest(root / "benchmarks/queries/manifest.json")
+            query_selection_digest(root / "benchmarks/queries")
             != manifest["query_manifest_sha256"]
         ):
             raise ValueError(
@@ -174,9 +174,7 @@ def prepare(output, *, root=ROOT):
     tables = freeze_tables(source, output)
     jobs = []
     with duckdb.connect(str(output / "inputs.duckdb"), read_only=True) as connection:
-        for query in json.loads(
-            (root / "benchmarks/queries/manifest.json").read_text()
-        )["queries"]:
+        for query in load_query_selection(root / "benchmarks/queries")["queries"]:
             text = (root / "benchmarks/queries" / query["sql"]).read_text()
             actual_hash = hashlib.sha256(text.encode()).hexdigest()
             if actual_hash != query["sql_sha256"]:
@@ -200,7 +198,7 @@ def prepare(output, *, root=ROOT):
         "input_mode": "full_original",
         "source_database": str(source),
         "source_database_sha256": digest(source),
-        "query_manifest_sha256": digest(root / "benchmarks/queries/manifest.json"),
+        "query_manifest_sha256": query_selection_digest(root / "benchmarks/queries"),
         "tables": tables,
         "jobs": jobs,
     }

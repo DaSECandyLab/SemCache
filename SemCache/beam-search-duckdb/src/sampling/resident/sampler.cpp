@@ -23,6 +23,7 @@ NativeSampler::prepare_statistics(const StateProblem &problem,
                                   const ActionPriorities &priorities,
                                   const std::optional<std::string> &fixed_model,
                                   bool collect_accuracy, double max_seconds) {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   // Fixed-model heuristic search ranks scalar work estimates only.
   // Prefix coverage belongs to value-model search, even for direct callers.
   if (fixed_model) {
@@ -263,10 +264,12 @@ NativeSampler::prepare_statistics(const StateProblem &problem,
   return std::make_shared<ProfileEnvironment>(frozen);
 }
 Json NativeSampler::calibrate_time(const StatePtr &state) {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   impl->calibrate_time(state);
   return impl->profile_.at("operator_time_calibration");
 }
 void NativeSampler::begin_search(double seconds) {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   const auto now = std::chrono::steady_clock::now();
   const auto maximum = std::chrono::steady_clock::time_point::max();
   impl->search_deadline =
@@ -276,9 +279,16 @@ void NativeSampler::begin_search(double seconds) {
                 std::chrono::duration_cast<std::chrono::steady_clock::duration>(
                     std::chrono::duration<double>(seconds));
 }
-void NativeSampler::end_search() { impl->search_deadline.reset(); }
-void NativeSampler::observe(const StatePtr &state) { impl->observe(state); }
+void NativeSampler::end_search() {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
+  impl->search_deadline.reset();
+}
+void NativeSampler::observe(const StatePtr &state) {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
+  impl->observe(state);
+}
 void NativeSampler::refresh(const std::vector<StatePtr> &states) {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   const bool history_changed = impl->harvest();
   // A later state's observation may publish priors needed by an earlier state.
   for (auto &state : states) {
@@ -294,14 +304,17 @@ void NativeSampler::refresh(const std::vector<StatePtr> &states) {
       impl->cache_edges(impl->states.at(states[i]->handle_id));
 }
 void NativeSampler::accuracy(const StatePtr &state) {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   if (impl->settings.value("sample_accuracy", true))
     impl->accuracy_batch({state});
 }
 void NativeSampler::accuracy_batch(const std::vector<StatePtr> &states) {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   if (impl->settings.value("sample_accuracy", true))
     impl->accuracy_batch(states);
 }
 void NativeSampler::retain(const std::vector<StatePtr> &live) {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   std::set<std::uint64_t> keep;
   std::set<std::uint64_t> keep_nodes;
   for (auto &state : live) {

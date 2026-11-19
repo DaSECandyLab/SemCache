@@ -29,10 +29,9 @@ from planning.settings.configuration import (
 from planning.settings.model_config import discover_models
 from planning.settings.teacher import TeacherModel
 from reference_answers.execution.semcache import HeuristicTeacherPolicy
-
 from training.artifacts import save
-from training.query_manifest import load_manifest, sql_sha256
 from training.query_validation.targets import row_verdict
+from training.workloads.query_manifest import load_manifest, sql_sha256
 
 
 def now():

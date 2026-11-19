@@ -12,13 +12,13 @@ if(NOT DEFINED SEM_DUCKDB_BUILD)
   execute_process(
     COMMAND
       "${Python_EXECUTABLE}" -c
-      "import json,pathlib,sys; p=pathlib.Path(sys.argv[1]); print((p.parents[1]/json.loads(p.read_text())['runtime']['build']).resolve())"
-      "${SEM_ROOT}/config/config.json"
+      "import json,pathlib,sys; p=pathlib.Path(sys.argv[1]); print((p.parents[2]/json.loads(p.read_text())['runtime']['build']).resolve())"
+      "${SEM_ROOT}/config/system/runtime.json"
     OUTPUT_VARIABLE SEM_DEFAULT_DUCKDB_BUILD
     OUTPUT_STRIP_TRAILING_WHITESPACE
     RESULT_VARIABLE SEM_CONFIG_STATUS)
   if(NOT SEM_CONFIG_STATUS EQUAL 0)
-    message(FATAL_ERROR "Cannot read the default DuckDB build from config.json")
+    message(FATAL_ERROR "Cannot read the default DuckDB build from config/system/runtime.json")
   endif()
 endif()
 set(SEM_DUCKDB_BUILD
@@ -69,10 +69,12 @@ python_add_library(
   search_bindings.cpp
   state_bindings.cpp
   resident_bindings.cpp
-  observation_core.cpp
+  resident_engine_bindings.cpp
   cache_terms.cpp
-  feature_buffers.cpp
-  native_features.cpp)
+  features/feature_buffers.cpp
+  features/native_features_stats.cpp
+  features/native_features_build.cpp
+  features/native_features_pack.cpp)
 semcache_native_target(_search_core 17)
 set_target_properties(
   _search_core
@@ -81,7 +83,8 @@ set_target_properties(
     BUILD_RPATH
     "${SEM_DUCKDB_BUILD}/extension/beam_search;${SEM_DUCKDB_BUILD}/shared")
 target_include_directories(
-  _search_core PRIVATE "${BEAM_SRC}" "${BEAM_SRC}/search"
+  _search_core PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${BEAM_SRC}" "${BEAM_SRC}/search"
+                       "${BEAM_SRC}/search/drivers" "${BEAM_SRC}/search/pruning"
                        "${SEM_PYBIND_INCLUDE}" "${SEM_ROOT}/third_party")
 target_link_libraries(_search_core PRIVATE beam_core statistics_core
                                            Threads::Threads ${CMAKE_DL_LIBS})

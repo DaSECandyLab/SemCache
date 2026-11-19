@@ -1,5 +1,5 @@
 #pragma once
-#include "search/resident_driver.hpp"
+#include "search/drivers/resident_driver.hpp"
 
 namespace semcache {
 // SQL-only statistical fallback. The production learned-value callback remains

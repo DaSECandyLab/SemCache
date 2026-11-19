@@ -1,7 +1,7 @@
 """Online priority Beam and training-only pure value/exploration budgets."""
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass
@@ -18,6 +18,7 @@ class SearchConfig:
     operator_priority_mode: str | None = None
     preference: str = "fastest"
     layer_pruning: str = "pareto"
+    grouped_operator_threshold: int | None = 10
     max_structure_groups: int = 15
     max_implementations_per_group: int = 6
 
@@ -43,6 +44,18 @@ class SearchConfig:
         if self.request_guided:
             return "heuristic_time"
         return self.layer_pruning
+
+    def for_problem(self, problem):
+        """Enable grouped layer pruning automatically above the operator threshold."""
+        if (
+            not self.training
+            and self.plan_generation == "heuristic_value"
+            and self.layer_pruning == "pareto"
+            and self.grouped_operator_threshold is not None
+            and len(problem.all_ops) > self.grouped_operator_threshold
+        ):
+            return replace(self, layer_pruning="grouped")
+        return self
 
     @classmethod
     def configured(cls, settings, plan_generation=None, **overrides):
@@ -107,6 +120,13 @@ class SearchConfig:
             not isinstance(self.fixed_model_id, str) or not self.fixed_model_id
         ):
             raise ValueError("fixed_model_id must be a nonempty model identifier")
+        if self.grouped_operator_threshold is not None and (
+            type(self.grouped_operator_threshold) is not int
+            or self.grouped_operator_threshold < 0
+        ):
+            raise ValueError(
+                "grouped_operator_threshold must be a nonnegative integer or null"
+            )
         if any(
             type(v) is not int or v < 1
             for v in (

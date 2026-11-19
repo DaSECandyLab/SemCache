@@ -129,7 +129,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q5",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q5.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q5.sql",
         "canonical_sql_sha256": "69c320054aa78c758b7ef20142cb5f56f0a7ae5a7849a5e71eb915955dd3b275",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -297,7 +297,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q5",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q5.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q5.sql",
         "canonical_sql_sha256": "69c320054aa78c758b7ef20142cb5f56f0a7ae5a7849a5e71eb915955dd3b275",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -464,7 +464,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q5",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q5.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q5.sql",
         "canonical_sql_sha256": "69c320054aa78c758b7ef20142cb5f56f0a7ae5a7849a5e71eb915955dd3b275",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -632,7 +632,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q9",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q9.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q9.sql",
         "canonical_sql_sha256": "2358b106a64dbc6d70ec122de6996b9de63326b1f6ace9afc0504977d89c6eba",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -799,7 +799,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q9",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q9.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q9.sql",
         "canonical_sql_sha256": "2358b106a64dbc6d70ec122de6996b9de63326b1f6ace9afc0504977d89c6eba",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -963,12 +963,12 @@
         "maximum_rows": 300,
         "status": "verified_12b",
         "observed_rows": 75,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q9",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q9.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q9.sql",
         "canonical_sql_sha256": "2358b106a64dbc6d70ec122de6996b9de63326b1f6ace9afc0504977d89c6eba",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -1152,7 +1152,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q10",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q10.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q10.sql",
         "canonical_sql_sha256": "625c98771b5d38ee08a8fef2890916657430654df2709c88c8654a3ae1c25b19",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -1338,7 +1338,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q10",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q10.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q10.sql",
         "canonical_sql_sha256": "625c98771b5d38ee08a8fef2890916657430654df2709c88c8654a3ae1c25b19",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -1525,7 +1525,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q10",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q10.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q10.sql",
         "canonical_sql_sha256": "625c98771b5d38ee08a8fef2890916657430654df2709c88c8654a3ae1c25b19",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -1696,7 +1696,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q11",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q11.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q11.sql",
         "canonical_sql_sha256": "abb0df8e41100cd01babb46975777a0953ecda58609859ddfc95a89547f3a948",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -1863,7 +1863,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q11",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q11.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q11.sql",
         "canonical_sql_sha256": "abb0df8e41100cd01babb46975777a0953ecda58609859ddfc95a89547f3a948",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -2027,12 +2027,12 @@
         "maximum_rows": 300,
         "status": "verified_12b",
         "observed_rows": 145,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q11",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q11.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q11.sql",
         "canonical_sql_sha256": "abb0df8e41100cd01babb46975777a0953ecda58609859ddfc95a89547f3a948",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -2231,7 +2231,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q12",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q12.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q12.sql",
         "canonical_sql_sha256": "57a0bcaee200d6784eae11a326a9e5e4113f3d6bddb84f207298f8f00e46f8fa",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -2438,7 +2438,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q12",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q12.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q12.sql",
         "canonical_sql_sha256": "57a0bcaee200d6784eae11a326a9e5e4113f3d6bddb84f207298f8f00e46f8fa",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -2645,7 +2645,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "estate/Q12",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/estate/Q12.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/estate/Q12.sql",
         "canonical_sql_sha256": "57a0bcaee200d6784eae11a326a9e5e4113f3d6bddb84f207298f8f00e46f8fa",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -2839,7 +2839,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q9",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q9.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q9.sql",
         "canonical_sql_sha256": "c5ecdcda81375b41bf67463629107b20dd86e9b5677f9ab7c5df06a6ea031e7c",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -3027,7 +3027,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q9",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q9.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q9.sql",
         "canonical_sql_sha256": "c5ecdcda81375b41bf67463629107b20dd86e9b5677f9ab7c5df06a6ea031e7c",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -3215,7 +3215,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q9",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q9.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q9.sql",
         "canonical_sql_sha256": "c5ecdcda81375b41bf67463629107b20dd86e9b5677f9ab7c5df06a6ea031e7c",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -3403,7 +3403,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q10",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q10.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q10.sql",
         "canonical_sql_sha256": "175e31a45839aa5f267dcd63d0e5c5c66f1892366c74c9a6533bbede5112b721",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -3591,7 +3591,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q10",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q10.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q10.sql",
         "canonical_sql_sha256": "175e31a45839aa5f267dcd63d0e5c5c66f1892366c74c9a6533bbede5112b721",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -3776,12 +3776,12 @@
         "maximum_rows": 300,
         "status": "verified_12b",
         "observed_rows": 70,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q10",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q10.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q10.sql",
         "canonical_sql_sha256": "175e31a45839aa5f267dcd63d0e5c5c66f1892366c74c9a6533bbede5112b721",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -3971,7 +3971,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q11",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q11.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q11.sql",
         "canonical_sql_sha256": "bccac985ed14fcae8b0975b1b6a9ee52caaebfcd9e22709abb3e495663258969",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -4160,7 +4160,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q11",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q11.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q11.sql",
         "canonical_sql_sha256": "bccac985ed14fcae8b0975b1b6a9ee52caaebfcd9e22709abb3e495663258969",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -4346,12 +4346,12 @@
         "maximum_rows": 300,
         "status": "verified_12b",
         "observed_rows": 80,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q11",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q11.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q11.sql",
         "canonical_sql_sha256": "bccac985ed14fcae8b0975b1b6a9ee52caaebfcd9e22709abb3e495663258969",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -4541,7 +4541,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q12",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q12.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q12.sql",
         "canonical_sql_sha256": "e72286d3071eee62407c2f0cbed5ef86f7bee92d3faf8e5162620e91a8b1f03b",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -4729,7 +4729,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q12",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q12.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q12.sql",
         "canonical_sql_sha256": "e72286d3071eee62407c2f0cbed5ef86f7bee92d3faf8e5162620e91a8b1f03b",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -4917,7 +4917,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies/Q12",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies/Q12.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies/Q12.sql",
         "canonical_sql_sha256": "e72286d3071eee62407c2f0cbed5ef86f7bee92d3faf8e5162620e91a8b1f03b",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -5089,7 +5089,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies_sema/Q10",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies_sema/Q10.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies_sema/Q10.sql",
         "canonical_sql_sha256": "f8d55b369e16e1875c72fa8a6235aab9b17a9039162b7eecad501f1aef1c57c6",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -5259,7 +5259,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies_sema/Q10",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies_sema/Q10.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies_sema/Q10.sql",
         "canonical_sql_sha256": "f8d55b369e16e1875c72fa8a6235aab9b17a9039162b7eecad501f1aef1c57c6",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -5437,7 +5437,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "movies_sema/Q10",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/movies_sema/Q10.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/movies_sema/Q10.sql",
         "canonical_sql_sha256": "f8d55b369e16e1875c72fa8a6235aab9b17a9039162b7eecad501f1aef1c57c6",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -5608,7 +5608,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "appstore/Q7",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/appstore/Q7.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/appstore/Q7.sql",
         "canonical_sql_sha256": "b04a157bf73510df52a18d7f2e963446a919fc01ffcfc16f5a63c8aa88aa02f4",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -5781,7 +5781,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "appstore/Q7",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/appstore/Q7.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/appstore/Q7.sql",
         "canonical_sql_sha256": "b04a157bf73510df52a18d7f2e963446a919fc01ffcfc16f5a63c8aa88aa02f4",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -5951,12 +5951,12 @@
         "maximum_rows": 300,
         "status": "verified_12b",
         "observed_rows": 54,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "appstore/Q7",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/appstore/Q7.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/appstore/Q7.sql",
         "canonical_sql_sha256": "b04a157bf73510df52a18d7f2e963446a919fc01ffcfc16f5a63c8aa88aa02f4",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -6131,7 +6131,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "appstore/Q8",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/appstore/Q8.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/appstore/Q8.sql",
         "canonical_sql_sha256": "cde5fc04b5efe7ce93f3578e00c815aaf444522e923e1f67073fd2f0e2adb4ba",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -6304,7 +6304,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "appstore/Q8",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/appstore/Q8.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/appstore/Q8.sql",
         "canonical_sql_sha256": "cde5fc04b5efe7ce93f3578e00c815aaf444522e923e1f67073fd2f0e2adb4ba",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -6491,7 +6491,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "appstore/Q8",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/appstore/Q8.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/appstore/Q8.sql",
         "canonical_sql_sha256": "cde5fc04b5efe7ce93f3578e00c815aaf444522e923e1f67073fd2f0e2adb4ba",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -6669,7 +6669,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "appstore/Q9",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/appstore/Q9.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/appstore/Q9.sql",
         "canonical_sql_sha256": "86e0561395204cc31a13f05638379caaac4895153b6576769cd94f1e611ab098",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -6842,7 +6842,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "appstore/Q9",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/appstore/Q9.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/appstore/Q9.sql",
         "canonical_sql_sha256": "86e0561395204cc31a13f05638379caaac4895153b6576769cd94f1e611ab098",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -7013,12 +7013,12 @@
         "status": "verified_12b",
         "acceptance_note": "User explicitly accepted the 301-row 12B result; keep predicates unchanged.",
         "observed_rows": 301,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "appstore/Q9",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/appstore/Q9.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/appstore/Q9.sql",
         "canonical_sql_sha256": "86e0561395204cc31a13f05638379caaac4895153b6576769cd94f1e611ab098",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -7197,7 +7197,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q16",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q16.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q16.sql",
         "canonical_sql_sha256": "cc861be64e8ba4347d728c139e2a6ebd45edb6d6096296e7150c235b999baf86",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -7274,7 +7274,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "29cd6ef6ed92855204fc9d3ef8d6bfc413cddcdf7b1d0cc4848f1e3a87500953",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -7385,7 +7385,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q16",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q16.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q16.sql",
         "canonical_sql_sha256": "cc861be64e8ba4347d728c139e2a6ebd45edb6d6096296e7150c235b999baf86",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -7462,7 +7462,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "16ed8c0be40b5e0a861ad75cd5c9f3779e01ee08330ded625999e90a5f78fcdf",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -7588,7 +7588,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q16",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q16.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q16.sql",
         "canonical_sql_sha256": "cc861be64e8ba4347d728c139e2a6ebd45edb6d6096296e7150c235b999baf86",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -7670,7 +7670,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "10333f72c23678b03fe01fd223a0dc3f45ec65c935692b93f4861b8dd33d776a",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -7784,7 +7784,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q17",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q17.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q17.sql",
         "canonical_sql_sha256": "8249dcefd62e10166032ff66a9106b47f66fd157a5edc9be034e012cbbc5d2db",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -7864,7 +7864,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "2f3e6f951b555b8d269521aa7e2b1fdf64d7eeccf1eb5ad1a4c5aea4d6945447",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -7978,7 +7978,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q17",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q17.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q17.sql",
         "canonical_sql_sha256": "8249dcefd62e10166032ff66a9106b47f66fd157a5edc9be034e012cbbc5d2db",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -8058,7 +8058,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "73adbf22eb582d0edda7f4abfe1dd02e5fbd5a33359b67e41f13c46091d4dfde",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -8169,12 +8169,12 @@
         "maximum_rows": 300,
         "status": "verified_12b",
         "observed_rows": 287,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q17",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q17.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q17.sql",
         "canonical_sql_sha256": "8249dcefd62e10166032ff66a9106b47f66fd157a5edc9be034e012cbbc5d2db",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -8256,7 +8256,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "f361afcd4f09ca5b8a2175f9b4e56de874d45fc3d008ab2cb1af8ffc8b846d6d",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -8367,7 +8367,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q25",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q25.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q25.sql",
         "canonical_sql_sha256": "408bb47ddd70e75a501154cf07187d19b9ec4538c0c8a465ac8623a3dc2aecc5",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -8444,7 +8444,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "5f0255076dca9a684488cabc15f71e2c6a920d1de0a1962ec969a263e27a82d4",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -8555,7 +8555,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q25",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q25.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q25.sql",
         "canonical_sql_sha256": "408bb47ddd70e75a501154cf07187d19b9ec4538c0c8a465ac8623a3dc2aecc5",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -8632,7 +8632,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "3015a47116e63ad0104df069fb3e16adcfd228578b6da215d85d4453e8a54d69",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -8740,12 +8740,12 @@
         "maximum_rows": 300,
         "status": "verified_12b",
         "observed_rows": 77,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q25",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q25.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q25.sql",
         "canonical_sql_sha256": "408bb47ddd70e75a501154cf07187d19b9ec4538c0c8a465ac8623a3dc2aecc5",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -8824,7 +8824,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "ab0ea5d7a775e9844805a4cec2488fd139158cac1b4e88a6b297ede949b15405",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -8954,7 +8954,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q26",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q26.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q26.sql",
         "canonical_sql_sha256": "eedd0a3abf5f21c7ab2fa6d22526a379e16ee520387c9a1a4bc4ed0eba34dfb8",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -9040,7 +9040,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "90232cd83c1cf9cc6d6920e4ceffa6ffb916ae45644707e34f2dbccda7c36a8a",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -9170,7 +9170,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q26",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q26.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q26.sql",
         "canonical_sql_sha256": "eedd0a3abf5f21c7ab2fa6d22526a379e16ee520387c9a1a4bc4ed0eba34dfb8",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -9256,7 +9256,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "cbada3c15b6b833cd500842d805a4a0620bf0619c7008cb7a2dcf3ac9d49ebec",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -9386,7 +9386,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q26",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q26.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q26.sql",
         "canonical_sql_sha256": "eedd0a3abf5f21c7ab2fa6d22526a379e16ee520387c9a1a4bc4ed0eba34dfb8",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -9472,7 +9472,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "e35d1d42dca10ef06812d3fe420c6f8226cfc95207ccce438f15ef7c94e14fce",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -9590,7 +9590,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q27",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q27.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q27.sql",
         "canonical_sql_sha256": "953853937b8611b88b14854b06d33f89fb9af5749efe17a4afe13a963f3c18c1",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -9672,7 +9672,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "58c8e1ed2ae88ac79f2a9ab9da1b10ea68c75ca2d259cc7ab502dda0227e2f33",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -9790,7 +9790,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q27",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q27.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q27.sql",
         "canonical_sql_sha256": "953853937b8611b88b14854b06d33f89fb9af5749efe17a4afe13a963f3c18c1",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -9872,7 +9872,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "9a1f81d67b9a96b0854076795d0ad480f79888637b03c18935081d8e5eca56cc",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -9987,12 +9987,12 @@
         "maximum_rows": 300,
         "status": "verified_12b",
         "observed_rows": 286,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q27",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q27.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q27.sql",
         "canonical_sql_sha256": "953853937b8611b88b14854b06d33f89fb9af5749efe17a4afe13a963f3c18c1",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -10076,7 +10076,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "33a9dd148e2af15a01d0284bd53500fcb6621e578334f8f6cfff6cef1a63db12",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -10190,7 +10190,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q28",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q28.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q28.sql",
         "canonical_sql_sha256": "d2aae650fbc967352845373df1becb490695e016f4f4dde6ccdf59b7dc02c4b9",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -10268,7 +10268,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "83cbe1b671a8ed20ae73c3fca4686cc52cd879f2e8c0210c725120704ebd2e5c",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -10382,7 +10382,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q28",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q28.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q28.sql",
         "canonical_sql_sha256": "d2aae650fbc967352845373df1becb490695e016f4f4dde6ccdf59b7dc02c4b9",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -10460,7 +10460,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "2c2785d9bf940f78c8e2f8885bf29468c3d0909efa67bfc389c62bc9666fd415",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -10574,7 +10574,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q28",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q28.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q28.sql",
         "canonical_sql_sha256": "d2aae650fbc967352845373df1becb490695e016f4f4dde6ccdf59b7dc02c4b9",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -10652,7 +10652,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "a7aab9b66fc48a2bf2c62c3d28820174289f31b522d5b9078c8d03ff3773d48c",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -10768,7 +10768,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q30",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q30.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q30.sql",
         "canonical_sql_sha256": "86b9478e2a70d64dbf3753bb58688dcdaf450ee08f9a3ee387855a9eac22a693",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -10848,7 +10848,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "e12ea826ebf5f40e597f1f8b1935806a87248bf18afa9ae00db643c76dde36c7",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -10964,7 +10964,7 @@
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q30",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q30.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q30.sql",
         "canonical_sql_sha256": "86b9478e2a70d64dbf3753bb58688dcdaf450ee08f9a3ee387855a9eac22a693",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -11044,7 +11044,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "0f5df5494d99e69707a1ac38552446c5ab0e1c052cf2a446a30902f6244792c8",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     },
@@ -11157,12 +11157,12 @@
         "maximum_rows": 300,
         "status": "verified_12b",
         "observed_rows": 149,
-        "validation_report": "/home/lyp/project/experiments/results/semcache/query_validation/report.json"
+        "validation_report": "experiments/results/semcache/query_validation/report.json"
       },
       "template_lineage": {
         "source": "public28_light_mutations",
         "public_query": "tpch/Q30",
-        "canonical_sql": "/home/lyp/project/benchmarks/queries/translated/semcache/tpch/Q30.sql",
+        "canonical_sql": "benchmarks/queries/translated/semcache/tpch/Q30.sql",
         "canonical_sql_sha256": "86b9478e2a70d64dbf3753bb58688dcdaf450ee08f9a3ee387855a9eac22a693",
         "heldout_query_used_as_template": true,
         "uses_test_answers": false,
@@ -11244,7 +11244,7 @@
       },
       "sql_equivalence": {
         "original_sql_sha256": "2038c8a7c3dce84c8d303caa91e04e1a007a6aaf920dd7a1f8a6047b57415358",
-        "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+        "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
         "validation_sha256": "5b90ac813d84f4d70d4e95b574b1845edc2742256afd2522ca616dbf3e04eff2"
       }
     }
@@ -11300,7 +11300,7 @@
   "sql_equivalence_rewrite": {
     "scope": "21 TPC-H queries",
     "cases": 235,
-    "validation": "/home/lyp/project/experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
+    "validation": "experiments/results/semcache/model_training/train-20261105-120102/recollection/tpch-rewrite/validation.json",
     "installed_at": "2026-11-06T19:37:13.521850+08:00"
   }
 }

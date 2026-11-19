@@ -10,7 +10,6 @@ from planning.settings.configuration import (
     load_config,
     runtime_path,
 )
-
 from training.workloads.catalog import compile_catalog, publish_catalog
 
 
@@ -18,7 +17,6 @@ def bind_queries(payload, settings, *, probe_inputs=False):
     """Validate all SQL with the production binder, without model requests."""
     from planning.backends.duckdb import DuckDBConnection
     from planning.backends.execution import DuckDBEvaluator
-
     from training.collection.features import normalize_explain
     from training.query_validation.probes import input_coverage
     from training.workloads.checks import (

@@ -5,19 +5,22 @@ import json
 import time
 from pathlib import Path
 
+from planning.state import digest as content_digest
+from training.artifacts import save
+from training.collection.labeling.rewards import execution_reward
+
 from experiments.core.io import digest
-from experiments.system_comparison.accuracy.artifacts import typed_result, unique_schema
-from experiments.system_comparison.accuracy.matching import (
+from experiments.system_comparison.accuracy.reporting.artifacts import (
+    typed_result,
+    unique_schema,
+)
+from experiments.system_comparison.accuracy.scoring.matching import (
     VERSION,
     finish_match,
     prepare_match,
     score_non_free_text,
 )
 from experiments.system_comparison.accuracy.teacher import judge_pairs
-from planning.state import digest as content_digest
-
-from training.artifacts import save
-from training.collection.rewards import execution_reward
 
 RESULT_ACCURACY_METRIC = VERSION
 PRE_AGGREGATE_ACCURACY_METRIC = VERSION
@@ -125,7 +128,9 @@ def finalize_measured_accuracy(
             if record["status"] == "timeout":
                 record["accuracy"] = 0.0
                 quality.update(
-                    value=0.0, accuracy=0.0, penalty_policy="timeout_accuracy_zero_v1",
+                    value=0.0,
+                    accuracy=0.0,
+                    penalty_policy="timeout_accuracy_zero_v1",
                     accuracy_is_penalty=True,
                     basis="timeout penalty; not a measured result F1",
                 )

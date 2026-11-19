@@ -96,11 +96,21 @@ class ParetoBeamSearch:
 
     @staticmethod
     def complete_key(problem, state):
-        schedule = (
-            problem.semantic_actions(state)
-            if problem.native and not problem.tree_regions
-            else None
-        )
+        schedule = None
+        if problem.native and not problem.tree_regions:
+            region_orders, model_orders = {}, {}
+            for action in state.actions:
+                oid = action["operator_id"]
+                if oid not in problem.ops:
+                    continue
+                nid = problem.ops[oid]["node_id"]
+                region = problem.predicate_nodes.get(nid)
+                if region is not None:
+                    region_orders.setdefault(str(region["region_id"]), []).append(oid)
+                model = action.get("model_id")
+                if isinstance(model, str):
+                    model_orders.setdefault(model, []).append(oid)
+            schedule = {"regions": region_orders, "models": model_orders}
         return digest([sorted(state.history), state.partial_plans.roots, schedule])
 
     def remember_completions(self, problem, states):
@@ -147,12 +157,21 @@ class ParetoBeamSearch:
         if problem.complete(problem.initial):
             completed.append(problem.initial)
             beam = []
+        elif problem.native:
+            try:
+                seed_state = problem.default_complete_state(
+                    fixed_model_id=getattr(self, "_fixed_model_id", None)
+                )
+                if seed_state is not None:
+                    completed.append(seed_state)
+            except ValueError as error:
+                original_candidate_error = str(error)
         self.trace = []
         return start, beam, completed, original_candidate_error
 
     def run(self, problem) -> dict[str, Any]:
         self.require_model(problem)
-        from planning.kernels.search import run_native
+        from planning.kernels.resident import run_native
 
         from .heuristics import fixed_model
 
@@ -166,11 +185,6 @@ class ParetoBeamSearch:
         self._completion_values = {}
         self._guard_result = {"status": "disabled", "plan": None}
         return run_native(self, problem)
-
-    def run_python(self, problem) -> dict[str, Any]:
-        from .reference import run_reference
-
-        return run_reference(self, problem)
 
     def _finish(
         self,

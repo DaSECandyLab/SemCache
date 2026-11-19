@@ -5,21 +5,21 @@ import time
 from pathlib import Path
 
 from planning.learning.training.data import dataset, validate_dataset
-
 from training.artifacts import read, save
-from training.collection.accuracy_labels import apply_accuracy_labels
-from training.collection.labels import COLLECTION_PROTOCOL
+from training.collection.labeling.accuracy_labels import apply_accuracy_labels
+from training.collection.labeling.labels import COLLECTION_PROTOCOL
 from training.collection.policy import (
     ACCURACY_FEEDBACK_PROTOCOL,
     FEEDBACK_PROTOCOL,
+    join_position_signature,
     logical_structure_signature,
     plan_signature,
 )
-from training.query_manifest import validate_round_workload
 from training.references.scoring import (
     OUTPUT_COMPARISON_REVISION,
     finalize_measured_accuracy,
 )
+from training.workloads.query_manifest import validate_round_workload
 
 
 def rollout_entries(workload, destination, count=2):
@@ -164,6 +164,7 @@ def collect_feedback_query(
     )
     seen = set()
     seen_structures = set()
+    seen_join_positions = set()
     selections = []
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=True)
@@ -227,6 +228,11 @@ def collect_feedback_query(
         if (leaf / "experience.json").exists():
             payload = read(leaf / "experience.json")
         else:
+            completed_times = tuple(
+                r["times"][0]
+                for r in records
+                if r.get("status") == "completed" and r.get("times")
+            )
             payload = (
                 collect(
                     leaf,
@@ -235,10 +241,12 @@ def collect_feedback_query(
                     minimum_accuracy=minimum,
                     excluded_plan_signatures=tuple(sorted(seen)),
                     excluded_structure_signatures=tuple(sorted(seen_structures)),
+                    excluded_join_positions=tuple(sorted(seen_join_positions)),
                     prepared_statistics=prepared_statistics(),
+                    completed_times=completed_times,
                 )
                 if thresholds is not None
-                else collect(leaf, index, policy)
+                else collect(leaf, index, policy, completed_times=completed_times)
             )
         validate_rollout(payload, workload, index, protocol)
         if thresholds is not None:
@@ -294,20 +302,27 @@ def collect_feedback_query(
                     "Repeated training plan was not explicitly marked unavoidable"
                 )
             seen.add(signature)
-            structure = logical_structure_signature(
-                record["plan"], read(leaf / "query_ir.json")
-            )
+            query_ir = read(leaf / "query_ir.json")
+            structure = logical_structure_signature(record["plan"], query_ir)
             if structure in seen_structures:
                 raise ValueError(
                     "Accuracy rollouts must have different logical structures"
                 )
             seen_structures.add(structure)
+            join_position = join_position_signature(record["plan"], query_ir)
+            if join_position is not None:
+                if join_position in seen_join_positions:
+                    raise ValueError(
+                        "Accuracy rollouts with joins must have different join positions"
+                    )
+                seen_join_positions.add(join_position)
             selections.append(
                 {
                     "search": index,
                     "minimum_accuracy": minimum,
                     "plan_signature": signature,
                     "logical_structure_signature": structure,
+                    "join_position_signature": join_position,
                     "replacement_scope": selection.get("replacement_scope"),
                     "duplicate_replaced": selection.get("duplicate_replaced", False),
                     "repeat_unavoidable": selection.get("repeat_unavoidable", False),
@@ -321,7 +336,7 @@ def collect_feedback_query(
                     "feedback_protocol": protocol,
                     "minimum_accuracies": thresholds,
                     "selections": selections,
-                    "selection_basis": "three accuracy searches; strict distinct logical structures; unseen feasible candidates preferred",
+                    "selection_basis": "three accuracy searches; strict distinct logical structures and join positions; unseen feasible candidates preferred",
                 },
             )
         elif index == 1:

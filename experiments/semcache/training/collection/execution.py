@@ -8,14 +8,12 @@ from planning.observations.request_timing import record_phase
 from planning.observations.statistics import ingest_history
 from planning.state import digest
 from reference_answers.sql.aggregate import capture_plan
-
 from training.artifacts import save
 from training.calibration.global_profile import shared_profile
 from training.collection.features import frozen_features
-from training.collection.history import save_history_context
+from training.collection.lifecycle.history import save_history_context
 from training.collection.policy import (
     PLAN_GENERATION_POLICIES,
-    appstore_filter_before_join,
     plan_signature,
 )
 from training.references.scoring import RESULT_ACCURACY_METRIC
@@ -49,6 +47,7 @@ def measured_record(
     descriptive_profile,
     initial_calibration,
     progress,
+    completed_times=(),
 ):
     """Execute the selected completion; leave quality pending comparison."""
     frozen, states, selected_spec = batch.frozen, batch.states, batch.selected_spec
@@ -81,32 +80,16 @@ def measured_record(
             metadata["rollout_index"],
         ]
     )
-    limit = policy.threshold([])
-    structural_timeout = workload["dataset"] == "appstore" and appstore_filter_before_join(
-        query, selected_spec
+    limit = policy.threshold(completed_times)
+    actual = evaluator.run(
+        current.spec(rebuilt),
+        source_query=query,
+        allow_timeout=True,
+        include_rows=False,
+        execution_timeout=limit,
+        capture_aggregate_input=capture_plan(workload["sql"]) is not None,
+        expected_progress=expected_requests(current, rebuilt),
     )
-    if structural_timeout:
-        artifact = output / "sql/timeout"
-        artifact.mkdir(parents=True, exist_ok=True)
-        actual = {
-            "status": "timeout", "time_lower_bound": limit,
-            "events": [], "artifact": str(artifact.resolve()),
-            "execution_skipped": True,
-        }
-        save(artifact / "timeout.json", {
-            "status": "timeout", "execution_skipped": True,
-            "accuracy": 0.0, "time_lower_bound": limit,
-        })
-    else:
-        actual = evaluator.run(
-            current.spec(rebuilt),
-            source_query=query,
-            allow_timeout=True,
-            include_rows=False,
-            execution_timeout=limit,
-            capture_aggregate_input=capture_plan(workload["sql"]) is not None,
-            expected_progress=expected_requests(current, rebuilt),
-        )
     ingest_history(
         actual["events"], history, adaptive=frozen.profile.get("adaptive_sketch")
     )

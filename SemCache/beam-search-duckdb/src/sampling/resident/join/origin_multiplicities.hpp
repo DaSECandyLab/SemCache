@@ -1,5 +1,5 @@
 #pragma once
-#include "../populations.hpp"
+#include "../support/populations.hpp"
 
 namespace semcache::sampling::resident_detail {
 // Preserve lineage encounter order and the factorized bag multiplicity.

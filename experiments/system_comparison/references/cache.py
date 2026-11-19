@@ -59,7 +59,8 @@ class TeacherCache:
         ).fetchone()
         self.max_entries, self.max_bytes = max_entries, max_bytes
         self.lock = threading.RLock()
-        self.key_locks = {}
+        self._stripes = tuple(threading.Lock() for _ in range(256))
+        self._recent_touch = {}
 
     def key(self, endpoint, forwarded):
         value = {
@@ -79,18 +80,22 @@ class TeacherCache:
         ).hexdigest()
 
     def key_lock(self, key):
-        with self.lock:
-            return self.key_locks.setdefault(key, threading.Lock())
+        return self._stripes[int(key[:4], 16) & 255]
 
     def _read(self, key):
+        now = time.time()
         with self.lock:
             row = self.db.execute(
                 "SELECT data FROM entries WHERE key=?", (key,)
             ).fetchone()
             if row:
-                self.db.execute(
-                    "UPDATE entries SET used=? WHERE key=?", (time.time(), key)
-                )
+                if now - self._recent_touch.get(key, 0.0) >= 60.0:
+                    self.db.execute(
+                        "UPDATE entries SET used=? WHERE key=?", (now, key)
+                    )
+                    if len(self._recent_touch) >= self.max_entries:
+                        self._recent_touch.clear()
+                    self._recent_touch[key] = now
                 return json.loads(row[0])
         return {"responses": [], "values": [], "confirmed": False, "winner": 0}
 
@@ -99,14 +104,18 @@ class TeacherCache:
             entry, ensure_ascii=False, allow_nan=False, separators=(",", ":")
         )
         size = len(text.encode())
+        now = time.time()
         with self.lock:
             old = self.db.execute(
                 "SELECT size FROM entries WHERE key=?", (key,)
             ).fetchone()
             self.db.execute(
                 "INSERT INTO entries VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data,size=excluded.size,used=excluded.used",
-                (key, text, size, time.time()),
+                (key, text, size, now),
             )
+            if len(self._recent_touch) >= self.max_entries:
+                self._recent_touch.clear()
+            self._recent_touch[key] = now
             self.count += int(old is None)
             self.bytes += size - (old[0] if old else 0)
             while self.count > self.max_entries or self.bytes > self.max_bytes:
@@ -114,6 +123,7 @@ class TeacherCache:
                     "SELECT key,size FROM entries ORDER BY used LIMIT 1"
                 ).fetchone()
                 self.db.execute("DELETE FROM entries WHERE key=?", (victim,))
+                self._recent_touch.pop(victim, None)
                 self.count -= 1
                 self.bytes -= victim_size
 

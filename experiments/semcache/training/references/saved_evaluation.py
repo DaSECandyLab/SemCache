@@ -6,7 +6,6 @@ from pathlib import Path
 from planning.settings.configuration import ROOT
 from reference_answers.sql.aggregate import capture_plan
 from reference_answers.storage.files import file_digest
-
 from training.artifacts import read
 
 

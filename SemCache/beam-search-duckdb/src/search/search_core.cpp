@@ -246,10 +246,7 @@ bool SearchSession::commit_observation(std::size_t child_id) {
   if (problem_.complete(child))
     completed_.push_back(child_id);
   else {
-    std::string history;
-    for (const auto &action : child->history())
-      history += std::to_string(action.size()) + ":" + action;
-    if (histories_.insert(history).second)
+    if (histories_.insert(problem_.state_key(child)).second)
       candidates_.push_back(child_id);
     else {
       states_.erase(child_id);
@@ -411,8 +408,11 @@ void SearchSession::commit_quality() {
   LayerTrace row{
       ++depth_, candidates_.size(), keep_.size(), completed_.size(), {}};
   row.beam_width = keep_.size();
-  row.cost_pruned = cost_pruned_;
-  row.quality_pruned = std::count(excluded_.begin(), excluded_.end(), true) - cost_pruned_;
+  const auto total_excluded = static_cast<std::size_t>(
+      std::count(excluded_.begin(), excluded_.end(), true));
+  const auto actual_cost = std::min(cost_pruned_, total_excluded);
+  row.cost_pruned = actual_cost;
+  row.quality_pruned = total_excluded - actual_cost;
   cost_pruned_ = 0;
   row.heuristic_guard = heuristic_guard_;
   row.random_exploration = random_slots_;

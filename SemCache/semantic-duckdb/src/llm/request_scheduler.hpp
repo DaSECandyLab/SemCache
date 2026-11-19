@@ -16,18 +16,23 @@
 #include "llm/llm_client.hpp"
 
 namespace semantic {
-// Shared FIFO admission for physical HTTP sends across every model and query
-// scheduler in this process. Unset SEMCACHE_GLOBAL_HTTP_CONCURRENCY keeps the
-// existing per-model policy. Cache hits never enter this queue; retries do.
+// Shared FIFO admission for physical HTTP sends across local model endpoints
+// in this process. Unset SEMCACHE_GLOBAL_HTTP_CONCURRENCY keeps the existing
+// per-model policy for local endpoints. External endpoints (for example remote
+// Teachers) never consume or wait on this local pool; an optional
+// SEMCACHE_EXTERNAL_HTTP_CONCURRENCY independently bounds external endpoints.
+// Cache hits never enter either queue; retries do.
 class SharedRequestAdmission {
 public:
-	SharedRequestAdmission();
+	enum class Scope { Local, External };
+	explicit SharedRequestAdmission(Scope scope = Scope::Local);
 	~SharedRequestAdmission();
 	void Release();
 	SharedRequestAdmission(const SharedRequestAdmission &) = delete;
 	SharedRequestAdmission &operator=(const SharedRequestAdmission &) = delete;
 
 private:
+	Scope scope = Scope::Local;
 	bool admitted = false;
 };
 
@@ -44,7 +49,6 @@ public:
 	// in-flight limit in both modes; other models are independent.
 	void SetOperatorOrder(const std::vector<int64_t> &operators);
 	std::shared_future<LLMResponse> Submit(LLMRequest request, std::function<void()> ready = {});
-	LLMResponse Infer(LLMRequest request);
 	void Shutdown();
 
 private:
@@ -77,6 +81,7 @@ private:
 	std::unordered_map<std::string, size_t> active_model_requests;
 	std::vector<std::thread> workers;
 	const bool unrestricted;
+	const size_t parallelism;
 	const size_t max_inflight_per_model;
 	const bool enforce_model_operator_order;
 	size_t active_requests = 0;

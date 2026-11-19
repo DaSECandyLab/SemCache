@@ -4,9 +4,9 @@ import argparse
 import fcntl
 import json
 import os
-from pathlib import Path
 import shutil
 import time
+from pathlib import Path
 
 from experiments.core.io import digest, save
 from experiments.core.paths import ROOT

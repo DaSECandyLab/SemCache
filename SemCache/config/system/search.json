@@ -5,7 +5,11 @@
     "fixed_model_id": "gemma4-e2b",
     "inference": {
       "max_expansions": 100000,
-      "max_seconds": 60
+      "max_seconds": 60,
+      "layer_pruning": "pareto",
+      "grouped_operator_threshold": 10,
+      "max_structure_groups": 15,
+      "max_implementations_per_group": 6
     },
     "training": {
       "max_expansions": 1000000,

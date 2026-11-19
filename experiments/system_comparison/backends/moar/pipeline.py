@@ -6,14 +6,11 @@ import ast
 import json
 from pathlib import Path
 
-import pandas as pd
-
 from experiments.core.io import save
 from experiments.system_comparison.backends.moar.runtime import records
 from experiments.validation.native_api import instruction
 from experiments.validation.runtime.native_graph import Compiler, describe
 from experiments.validation.workload.cte import inline_single_use
-
 
 AMENITIES_COMPACT_INSTRUCTION = (
     " List all distinct amenities as short generic labels separated by commas."

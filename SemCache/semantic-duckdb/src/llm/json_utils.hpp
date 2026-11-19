@@ -2,7 +2,6 @@
 
 
 #include <set>
-#include <cctype>
 #include <string>
 #include "nlohmann/json.hpp"
 #include "plan/semantic_config.hpp"
@@ -41,63 +40,6 @@ inline Json ParseJSON(const std::string &text) {
 			keys.pop_back();
 		return true;
 	});
-}
-
-// Some OpenAI-compatible servers return a valid structured value followed by
-// a short generation artifact such as "\n\nW". Keep ParseJSON strict for
-// plans and configuration; the HTTP structured-output boundary may isolate the
-// first complete value before applying the normal schema/type checks.
-inline std::string FirstJSONValue(const std::string &text) {
-	std::size_t start = 0;
-	while (start < text.size() && std::isspace(static_cast<unsigned char>(text[start])))
-		++start;
-	if (start == text.size())
-		return {};
-	const char opening = text[start];
-	if (opening != '{' && opening != '[' && opening != '"') {
-		std::size_t end = start;
-		while (end < text.size() && !std::isspace(static_cast<unsigned char>(text[end])))
-			++end;
-		return text.substr(start, end - start);
-	}
-	if (opening == '"') {
-		bool escaped = false;
-		for (std::size_t i = start + 1; i < text.size(); ++i) {
-			const char c = text[i];
-			if (escaped) {
-				escaped = false;
-				continue;
-			}
-			if (c == '\\')
-				escaped = true;
-			else if (c == '"')
-				return text.substr(start, i - start + 1);
-		}
-		return text;
-	}
-	int depth = 0;
-	bool in_string = false, escaped = false;
-	for (std::size_t i = start; i < text.size(); ++i) {
-		const char c = text[i];
-		if (in_string) {
-			if (escaped)
-				escaped = false;
-			else if (c == '\\')
-				escaped = true;
-			else if (c == '"')
-				in_string = false;
-			continue;
-		}
-		if (c == '"')
-			in_string = true;
-		else if (c == '{' || c == '[')
-			++depth;
-		else if (c == '}' || c == ']') {
-			if (--depth == 0)
-				return text.substr(start, i - start + 1);
-		}
-	}
-	return text;
 }
 
 }

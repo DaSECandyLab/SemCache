@@ -1,5 +1,6 @@
-"""Use measured depth rates, falling back to the whole-field operator rate."""
+"""Use measured depth rates, bracketed linear interpolation, and overall fallback."""
 
+import bisect
 import math
 
 
@@ -15,23 +16,53 @@ def _overall_rate(info, field):
         if finite(entry.get("rate")) and (
             entry.get("observed", 0) > 0
             or name == "prefix_selectivity_statistics"
-            and entry.get("source") in ("operator_scalar", "exact", "empty_population")
+            and entry.get("source")
+            in ("operator_scalar", "exact", "empty_population")
         ):
             return entry["rate"]
     return info.get("selectivity")
 
 
+def _anchors_and_scalar(info, field):
+    table = info.get("depth_selectivity_statistics", {}).get(field, {})
+    scalar = _overall_rate(info, field)
+    anchors = {}
+    for key, raw in table.items():
+        if key.isdigit() and finite(raw.get("rate")) and raw.get("observed", 0) > 0:
+            anchors[int(key)] = raw["rate"]
+    if 0 not in anchors and finite(scalar) and any(d > 0 for d in anchors):
+        anchors[0] = scalar
+    return anchors, scalar
+
+
+def _interpolate_depth(anchors, depth_int):
+    if depth_int is None or depth_int <= 0 or not anchors:
+        return None
+    depths = sorted(anchors)
+    idx = bisect.bisect_right(depths, depth_int)
+    if 0 < idx < len(depths):
+        lo, hi = depths[idx - 1], depths[idx]
+        t = (depth_int - lo) / (hi - lo)
+        rate = max(0.0, min(1.0, anchors[lo] + t * (anchors[hi] - anchors[lo])))
+        return rate, lo, hi
+    return None
+
+
 def prefix_rate(info, field, depth):
-    """Ignore historical interpolation and use the operator's overall rate."""
+    """Return measured depth rate, linear interpolation if bracketed, else scalar."""
+    key = str(depth)
     for name in ("depth_selectivity_statistics", "prefix_selectivity_statistics"):
-        entry = info.get(name, {}).get(field, {}).get(str(depth), {})
+        entry = info.get(name, {}).get(field, {}).get(key, {})
         if finite(entry.get("rate")) and (
             entry.get("observed", 0) > 0
             or name == "prefix_selectivity_statistics"
             and entry.get("source") in ("exact", "empty_population")
         ):
             return entry["rate"]
-    scalar = _overall_rate(info, field)
+    anchors, scalar = _anchors_and_scalar(info, field)
+    interpolated = _interpolate_depth(anchors, int(key) if key.isdigit() else None)
+    if interpolated is not None:
+        return interpolated[0]
     return scalar if finite(scalar) else None
 
 
@@ -48,7 +79,7 @@ def complete_prefix_selectivity(info):
         summary = summaries.get(field, {})
         sketches = summary.get("sketches", {})
         depths = sorted({0, *map(int, table), *map(int, sketches)})
-        scalar = _overall_rate(info, field)
+        anchors, scalar = _anchors_and_scalar(info, field)
         target = result[field] = {}
         for depth in depths:
             key = str(depth)
@@ -71,6 +102,12 @@ def complete_prefix_selectivity(info):
                 entry.update(source="measured", anchor_depths=[depth])
             elif empty:
                 entry.update(rate=0.0, source="empty_population")
+            elif (interp := _interpolate_depth(anchors, depth)) is not None:
+                entry.update(
+                    rate=interp[0],
+                    source="interpolated",
+                    anchor_depths=[interp[1], interp[2]],
+                )
             elif finite(scalar):
                 entry.update(rate=scalar, source="operator_scalar", anchor_depths=[0])
             target[key] = entry

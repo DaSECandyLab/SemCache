@@ -8,7 +8,7 @@
 #include "llm/json_utils.hpp"
 #include "llm/request_scheduler.hpp"
 #include "operators/binding/semantic_bind.hpp"
-#include "llm/query_result_cache.hpp"
+#include "llm/cache/query_result_cache.hpp"
 #include "prompt/row_serializer.hpp"
 #include "prompt/prompt_renderer.hpp"
 #include "runtime/runtime_plan_state.hpp"
@@ -168,8 +168,10 @@ struct QueryRuntime {
 	void RecordOperatorInterval(int64_t operator_id, int64_t lo, int64_t hi);
 	double OperatorProcessingSeconds(int64_t operator_id);
 	void Reoptimize(ClientContext &context);
+	bool HasPendingPlanUpdate(int64_t id) const;
 	Json RuntimeStatistics() const;
 	void BeginChunk(ClientContext &context, int64_t id, uint64_t first, uint64_t rows);
+	void ExtendChunk(ClientContext &context, int64_t id, uint64_t rows);
 	void EndChunk(ClientContext &context, int64_t id);
 	SemanticResultCache::Bucket &ResultBucket(semantic::LLMRequest &request, uint64_t generation);
 };

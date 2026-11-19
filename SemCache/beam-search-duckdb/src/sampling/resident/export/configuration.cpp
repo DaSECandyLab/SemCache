@@ -2,10 +2,12 @@
 
 namespace semcache::sampling {
 Json NativeSampler::telemetry() const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   return {{"events", impl->archived_events},
           {"observations", impl->archived_observations}};
 }
 Json NativeSampler::config() const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   Json out = impl->imported;
   out["profile"] = impl->profile_;
   out["history"] = impl->history_;

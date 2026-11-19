@@ -17,6 +17,7 @@ class TeacherModel:
     endpoint: dict
     supported_kinds: tuple = KINDS
     api_key: str | None = field(default=None, repr=False, compare=False)
+    external: bool | None = field(default=None, repr=False, compare=False)
 
     def configuration(self):
         return {
@@ -30,7 +31,18 @@ class TeacherModel:
         # 只桥接调用者显式提供的 JSON 密钥，不读取任何外部凭据文件。
         if self.api_key is not None:
             os.environ[self.endpoint["api_key_env"]] = self.api_key
-        return {**models, self.model_id: copy.deepcopy(self.endpoint)}
+        endpoint = copy.deepcopy(self.endpoint)
+        is_external = (
+            self.external
+            if self.external is not None
+            else (bool(models) and self.model_id not in models)
+        )
+        if "external" not in endpoint:
+            if is_external:
+                endpoint["external"] = True
+            elif self.external is False:
+                endpoint["external"] = False
+        return {**models, self.model_id: endpoint}
 
     def apply_profile(self, profile):
         profile["judge_model"] = self.model_id
@@ -98,6 +110,7 @@ def load_teacher(model_id, candidate_models, config=None):
         model_id = max(candidate_models, key=size)
     if config is None and model_id in candidate_models:
         endpoint, kinds = copy.deepcopy(candidate_models[model_id]), KINDS
+        is_external = False
     else:
         _, entries = _read_config(config)
         if model_id not in entries:
@@ -106,6 +119,12 @@ def load_teacher(model_id, candidate_models, config=None):
             )
         endpoint = copy.deepcopy(entries[model_id])
         kinds = tuple(endpoint.pop("supported_kinds", KINDS))
+        same_local = (
+            model_id in candidate_models
+            and candidate_models[model_id].get("base_url") == endpoint.get("base_url")
+            and candidate_models[model_id].get("model") == endpoint.get("model")
+        )
+        is_external = not same_local
     if any(key.lower() == "authorization" for key in endpoint):
         raise ValueError("Teacher credentials must use api_key or api_key_env")
     headers = endpoint.get("headers")
@@ -151,4 +170,6 @@ def load_teacher(model_id, candidate_models, config=None):
         not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name)
     ):
         raise ValueError("api_key_env must be an environment variable name")
-    return TeacherModel(model_id, endpoint, kinds, api_key)
+    if "external" in endpoint and type(endpoint["external"]) is not bool:
+        raise ValueError("external must be a boolean")
+    return TeacherModel(model_id, endpoint, kinds, api_key, external=is_external)

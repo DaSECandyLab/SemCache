@@ -66,7 +66,7 @@ def self_reuse(summary, alpha, *, requests=None):
             term = _search_core.SelfTerms(counts, tau)
             terms[depth] = term, bool(sample)
         values[depth] = term.evaluate(rate)
-    return integrate(values) / denominator
+    return integrate(values, summary.observed_max_length) / denominator
 
 
 def join_self(
@@ -97,8 +97,9 @@ def join_self(
     if left_rate is None or right_rate is None:
         return None
     left_count, right_count = left.count * left_rate, right.count * right_rate
-    if not left_count or not right_count:
+    if left_count <= 0 or right_count <= 0:
         return 0.0
+    eff_right = max(1.0, right_count)
     mean_left = (
         left.total_length if left_total_length is None else left_total_length
     ) / left.count
@@ -109,8 +110,8 @@ def join_self(
     if left_reuse is None or right_reuse is None:
         return None
     return (
-        left_reuse / right_count
-        + max(0, right_count - 1) / right_count * mean_left
+        left_reuse / eff_right
+        + (eff_right - 1.0) / eff_right * mean_left
         + right_reuse
     )
 

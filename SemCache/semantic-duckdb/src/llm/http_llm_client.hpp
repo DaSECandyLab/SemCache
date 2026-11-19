@@ -8,7 +8,7 @@
 #include <mutex>
 #include <future>
 #include <unordered_map>
-#include "llm/prompt_result_cache.hpp"
+#include "llm/cache/prompt_result_cache.hpp"
 #include "llm/llm_client.hpp"
 #include "llm/model_registry.hpp"
 

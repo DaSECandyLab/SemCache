@@ -11,7 +11,7 @@ std::string quote_sample_id(const std::string &value) {
   }
   return result + "'";
 }
-}
+} // namespace
 
 void NativeSampler::resample_empty(const StatePtr &state) {
   // This runs before the one-shot accuracy comparison and before Beam. Rebuild
@@ -110,7 +110,7 @@ void NativeSampler::resample_empty(const StatePtr &state) {
             " ROWS) REPEATABLE (" + std::to_string(seed) +
             ") ORDER BY hash(__sample_id," + std::to_string(seed) + ")";
         const auto backend = impl->backend;
-        auto rows = impl->state_backend_call(
+        auto rows = impl->sql_pipeline.run(
             [&] { return backend->load(relation, sql); });
         added |= !rows.empty();
         auto &registry = config["sources"][relation];
@@ -147,14 +147,16 @@ void NativeSampler::resample_empty(const StatePtr &state) {
       break;
     auto replacement = std::make_unique<Impl>(config, impl->backend);
     replacement->ledger = std::move(impl->ledger);
-    // Refill continues until output; accuracy retains its separate per-operator allowance.
+    // Refill continues until output; accuracy retains its separate per-operator
+    // allowance.
     replacement->ledger.allow_additional_selection(
         increased * std::max(std::size_t(1), impl->ops.size()) * 3);
     replacement->counters = impl->counters;
     replacement->counters["zero_output_refill_waves"] = ++wave;
     replacement->selection_requests_by_operator =
         std::move(impl->selection_requests_by_operator);
-    replacement->selection_model_cursor = std::move(impl->selection_model_cursor);
+    replacement->selection_model_cursor =
+        std::move(impl->selection_model_cursor);
     replacement->selection_workers = std::move(impl->selection_workers);
     replacement->moments = std::move(impl->moments);
     replacement->archived_events = std::move(impl->archived_events);
@@ -180,4 +182,4 @@ void NativeSampler::resample_empty(const StatePtr &state) {
   if (impl->deadline_reached())
     impl->counters["zero_output_refill_deadline_reached"] = true;
 }
-}
+} // namespace semcache::sampling

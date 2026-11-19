@@ -116,6 +116,20 @@ def effective_actions(events, decision, report):
                 active[operator]["seen"] = set()
             entry["status"] = "RUNNING"
             entry["next_batch_seq"] += 1
+        elif kind == "batch_extended":
+            operator = event["operator_id"]
+            if (
+                not chunk_mode
+                or operator not in active
+                or event["batch_seq"] != active[operator]["batch_seq"]
+                or event["config_generation"] != active[operator]["config_generation"]
+                or type(event.get("added_capacity")) is not int
+                or event["added_capacity"] < 1
+                or event["capacity"]
+                != active[operator]["capacity"] + event["added_capacity"]
+            ):
+                raise ValueError("Invalid runtime batch extension")
+            active[operator]["capacity"] = event["capacity"]
         elif kind in (
             "semantic_row",
             "semantic_result_reuse",

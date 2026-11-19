@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from planning.backends.execution import DuckDBEvaluator
-from planning.execution.cache_reset import clear_prompt_answers
+from planning.execution.cache.reset import clear_prompt_answers
 from planning.execution.feedback import reset_serving_cache
 from planning.execution.timeouts import TimeoutPolicy
 from planning.execution.timing import PhaseTimings
@@ -21,15 +21,16 @@ from planning.settings.modes import (
     sampling_for_mode,
 )
 from planning.state import SearchProblem
-
 from training.artifacts import save
 from training.calibration.global_profile import shared_profile
 from training.collection.candidates import search_candidates
 from training.collection.execution import expected_requests as expected_requests
 from training.collection.execution import measured_record
 from training.collection.features import normalize_explain
-from training.collection.labels import COLLECTION_PROTOCOL as COLLECTION_PROTOCOL
-from training.collection.labels import estimated_records, record_metadata
+from training.collection.labeling.labels import (
+    COLLECTION_PROTOCOL as COLLECTION_PROTOCOL,
+)
+from training.collection.labeling.labels import estimated_records, record_metadata
 from training.collection.policy import (
     ACCURACY_FEEDBACK_PROTOCOL,
     FEEDBACK_PROTOCOL,
@@ -86,8 +87,10 @@ def collect_native(
     minimum_accuracy=None,
     excluded_plan_signatures=(),
     excluded_structure_signatures=(),
+    excluded_join_positions=(),
     searches_per_query=2,
     prepared_statistics=None,
+    completed_times=(),
 ):
     """One independent sampled Beam -> frozen features -> one execution.
 
@@ -242,6 +245,7 @@ def collect_native(
                 minimum_accuracy=minimum_accuracy,
                 excluded_plan_signatures=excluded_plan_signatures,
                 excluded_structure_signatures=excluded_structure_signatures,
+                excluded_join_positions=excluded_join_positions,
                 prepared_statistics=prepared_statistics,
             )
             frozen, states, result = batch.frozen, batch.states, batch.result
@@ -282,6 +286,12 @@ def collect_native(
                             "constraint_satisfied"
                         ],
                         plan_signature=result["rollout_selection"]["plan_signature"],
+                        logical_structure_signature=result["rollout_selection"][
+                            "logical_structure_signature"
+                        ],
+                        join_position_signature=result["rollout_selection"][
+                            "join_position_signature"
+                        ],
                         duplicate_replaced=result["rollout_selection"][
                             "duplicate_replaced"
                         ],
@@ -315,6 +325,7 @@ def collect_native(
                         descriptive_profile=descriptive_profile,
                         initial_calibration=initial_calibration,
                         progress=progress,
+                        completed_times=completed_times,
                     )
                 ]
             timings.checkpoint(

@@ -3,8 +3,14 @@
 from pathlib import Path
 
 from reference_answers.storage.files import file_digest
-
 from training.artifacts import read
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _resolve_repo_path(value):
+    path = Path(value)
+    return path if path.is_absolute() else (REPO_ROOT / path).resolve()
 
 
 def load_template_rewrites(directory):
@@ -13,11 +19,11 @@ def load_template_rewrites(directory):
     if not marker.is_file():
         return frozenset()
     proof = read(marker)
-    certificate = Path(proof["certificate"])
+    certificate = _resolve_repo_path(proof["certificate"])
     if file_digest(certificate) != proof["sha256"]:
         raise ValueError("Template rewrite certificate changed")
     installed = read(certificate)
-    validation = Path(installed["validation"])
+    validation = _resolve_repo_path(installed["validation"])
     if file_digest(validation) != installed["validation_sha256"]:
         raise ValueError("Template rewrite validation changed")
     verified = read(validation)

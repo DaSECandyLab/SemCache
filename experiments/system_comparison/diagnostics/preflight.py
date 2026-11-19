@@ -21,6 +21,8 @@ from experiments.system_comparison.transport.gateway import (
     flush_model_caches,
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 def main():
     import duckdb
@@ -59,7 +61,8 @@ def main():
             )
         elif dataset == "appstore":
             source = (
-                Path("/home/lyp/project/benchmarks/queries/translated/semcache")
+                REPO_ROOT
+                / "benchmarks/queries/translated/semcache"
                 / (args.query_id + ".sql")
             ).read_text()
             category = re.search(r"Category\s*=\s*'([^']+)'", source, re.IGNORECASE)[1]
@@ -189,7 +192,7 @@ def main():
                     "embedding": {
                         "backend": "sentence_transformers",
                         "model": str(
-                            Path("/home/lyp/project/sglang/models/all-MiniLM-L6-v2")
+                            REPO_ROOT / "sglang/models/all-MiniLM-L6-v2"
                         ),
                         "device": "cpu",
                     },

@@ -37,6 +37,8 @@ def _statistics_memo(rows):
     immutable = (
         "summary",
         "right_summary",
+        "input_field_summaries",
+        "output_field_summaries",
         "conditional_sketch_plan",
         "adaptive",
     )

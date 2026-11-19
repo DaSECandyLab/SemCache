@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
-from collections import Counter
-from copy import deepcopy
 import hashlib
 import json
 import os
-from pathlib import Path
 import time
+from collections import Counter
+from copy import deepcopy
+from pathlib import Path
 
 from experiments.core.io import digest, save
-from experiments.system_comparison.backends.moar.pipeline import Builder, AMENITIES_COMPACT_INSTRUCTION
-from experiments.system_comparison.backends.moar.runtime import install_relational_join, install_nullable_numbers
+from experiments.system_comparison.backends.moar.pipeline import (
+    AMENITIES_COMPACT_INSTRUCTION,
+    Builder,
+)
+from experiments.system_comparison.backends.moar.runtime import (
+    install_nullable_numbers,
+    install_relational_join,
+)
 from experiments.system_comparison.reporting.results import normalize, value_for_type
-
 
 COMPACT_OUTPUT_INSTRUCTION = (
     "Output only the required result, with no explanation or unrelated details. "
@@ -169,10 +174,11 @@ def run(job):
     set_request_stage = install_client(job)
     install_relational_join()
     install_nullable_numbers()
-    from experiments.system_comparison.execution.worker import load_tables, load_module
-    from experiments.core.paths import ROOT
     from docetl.moar.optimizer import run_moar
     from docetl.runner import DSLRunner
+
+    from experiments.core.paths import ROOT
+    from experiments.system_comparison.execution.worker import load_module, load_tables
 
     audit_module = load_module("moar_validation_audit", ROOT / "systems/moar/validate.py")
     load_started = time.monotonic()

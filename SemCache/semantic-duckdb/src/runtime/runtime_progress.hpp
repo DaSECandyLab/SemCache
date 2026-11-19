@@ -11,9 +11,11 @@ class RuntimeProgress {
 public:
 	using Json = llm_detail::Json;
 	RuntimeProgress(const Json &query, const Json &estimates, uint64_t limit);
+	void ObserveChunk(int64_t id, uint64_t first_input, uint64_t capacity);
 	void Observe(int64_t id);
 	void Finish(int64_t id);
 	double Fraction() const;
+	bool AllDone() const;
 	// Consume crossed checkpoints, including checks that cannot run while the
 	// previous search is busy. Never catch up with a burst at the same progress.
 	uint64_t TakeDue();

@@ -3,12 +3,10 @@
 import copy
 import math
 import re
-from contextlib import contextmanager
 
 from planning.settings.parallelism import sampling_parallelism
 
 from ..state import field_key
-from .execution import SQLBackend
 
 
 class NativeSamplingFactory:
@@ -126,87 +124,13 @@ class NativeSamplingFactory:
             raise ValueError("Value-guided sampling requires an offline statistics store")
         return self.offline_store.for_query(problem.query, required=True)
 
-    def reference(self, problem):
-        return self._for_problem(problem)._reference(problem)
-
-    @contextmanager
-    def _reference(self, problem):
-        """Explicit differential reference; production uses native sampling."""
-        from planning.execution.feedback import SampleCalibration
-
-        from ..sampling import SamplingCoordinator
-
-        transport_models = (
-            self.teacher.transport_models(self.models) if self.teacher else self.models
-        )
-        types = prepare_stages(problem, transport_models, sampling=self.config)
-        calibration = SampleCalibration(problem.profile)
-        with SQLBackend(
-            self.build,
-            transport_models,
-            database=self.database,
-            setup=self.setup,
-            field_types=types,
-            collect_telemetry=True,
-            history_sink=self.history,
-            observation_sink=calibration.observe,
-            adaptive_sketch=self.config.get("adaptive_sketch"),
-            parallelism=self.config["parallelism"],
-            cpu_workers=self.config["cpu_workers"],
-        ) as backend:
-            from .direct_sampling import load_direct_sources
-
-            sources, populations, direct_sources = load_direct_sources(
-                problem, self.config, backend.load
-            )
-            offline_statistics = self.offline_statistics(problem)
-            for relation in populations:
-                if str(relation) in offline_statistics:
-                    populations[relation] = offline_statistics[str(relation)][
-                        "cooccurrence"
-                    ]["row_count"]
-            problem.history_provider = self.history.snapshot
-            coordinator = SamplingCoordinator(
-                sources,
-                backend,
-                population_counts=populations,
-                direct_sources=direct_sources,
-                **{
-                    k: v
-                    for k, v in self.config.items()
-                    if k
-                    not in {
-                        "cpu_workers",
-                        "cpu_parallelism",
-                        "parallelism",
-                        "relational_fallback_sampling",
-                        "selectivity_batch_size",
-                        "accuracy_batch_size",
-                        "accuracy_batch_max_bytes",
-                        "max_fallback_model_calls",
-                        "offline_statistics_dir",
-                        "selectivity_batch_max_bytes",
-                        "plan_generation",
-                        "fixed_model_id",
-                        "trace_timings",
-                        "collect_calibration",
-                        "relational_cardinality_sample_rows",
-                        "max_concurrent_requests_per_model",
-                    }
-                },
-            )
-            coordinator.offline_statistics = offline_statistics
-            from planning.observations.cache import PrefixSummary
-
-            for relation, offline in coordinator.offline_statistics.items():
-                rid = next(r for r in sources if str(r) == relation)
-                for name, summary in offline["summaries"].items():
-                    coordinator.population_summaries[(rid, name)] = PrefixSummary.load(
-                        summary
-                    )
-            problem.profile["adaptive_sketch"] = coordinator.sketch_config
-            problem.profile["base_sketch_plans"] = coordinator.population_sketch_plans
-            yield coordinator
+    def offline_statistics_files(self, problem):
+        required = self.config.get("sample_depth_selectivity", True)
+        if not required:
+            return {}, {}
+        if self.offline_store is None:
+            raise ValueError("Value-guided sampling requires an offline statistics store")
+        return self.offline_store.for_query_files(problem.query, required=True)
 
     def close(self):
         if self._owns_history:

@@ -4,19 +4,34 @@ import hashlib
 import json
 from pathlib import Path
 
-from experiments.system_comparison.accuracy.artifacts import result_digest, typed_result
 from reference_answers.semcache import PROTOCOL as SEMCACHE_REFERENCE_PROTOCOL
 from reference_answers.sql.aggregate import capture_plan
 from reference_answers.storage.files import file_digest
+
+from experiments.system_comparison.accuracy.reporting.artifacts import (
+    result_digest,
+    typed_result,
+)
 
 
 def sql_digest(sql):
     return hashlib.sha256(sql.encode()).hexdigest()
 
 
+def _strip_leading_sql_comments(sql):
+    lines = sql.splitlines()
+    while lines and (not lines[0].strip() or lines[0].lstrip().startswith("--")):
+        lines.pop(0)
+    return "\n".join(lines).strip()
+
+
 def sql_matches_reference(workload, reference):
     """Accept a validated SemCache rewrite paired with its source answer."""
-    if workload["sql"].strip() == reference["source_sql"].strip():
+    if (
+        workload["sql"].strip() == reference["source_sql"].strip()
+        or _strip_leading_sql_comments(workload["sql"])
+        == _strip_leading_sql_comments(reference["source_sql"])
+    ):
         return True
     equivalence = workload.get("sql_equivalence")
     if not isinstance(equivalence, dict):
@@ -195,6 +210,12 @@ class TrainingAnswers:
             snapshot_path = Path(pre["path"])
             if not snapshot_path.is_absolute():
                 snapshot_path = self.root / snapshot_path
+            elif not snapshot_path.is_file():
+                marker = f"/{workload['id']}/"
+                if marker in pre["path"]:
+                    candidate = answer_path.parent / pre["path"].split(marker, 1)[1]
+                    if candidate.is_file():
+                        snapshot_path = candidate
             try:
                 payload = json.loads(snapshot_path.read_text())
             except FileNotFoundError as error:

@@ -8,10 +8,9 @@ import shutil
 import time
 from pathlib import Path
 
-from experiments.system_comparison.accuracy.matching import score_non_free_text
 from planning.backends.execution import DuckDBEvaluator
 from planning.backends.sampling import NativeSamplingFactory
-from planning.execution.cache_reset import clear_prompt_answers
+from planning.execution.cache.reset import clear_prompt_answers
 from planning.execution.feedback import reset_serving_cache
 from planning.observations.cache import CacheHistory
 from planning.observations.statistics import ingest_history
@@ -19,10 +18,11 @@ from planning.search.beam import ParetoBeamSearch, SearchConfig
 from planning.search.heuristics import fixed_layout
 from planning.settings.configuration import runtime_path
 from planning.settings.modes import profile_for_mode, sampling_for_mode
-
 from training.artifacts import read, save
 from training.collection.features import normalize_explain
 from training.references.scoring import candidate_result
+
+from experiments.system_comparison.accuracy.scoring.matching import score_non_free_text
 
 
 def fingerprint(value):
@@ -416,7 +416,6 @@ def main():
     )
     from planning.settings.parallelism import configure_cpu_resources
     from planning.settings.teacher import default_teacher_model, load_teacher
-
     from training.calibration.global_profile import GlobalCalibration
     from training.references.answers import TrainingAnswers
 

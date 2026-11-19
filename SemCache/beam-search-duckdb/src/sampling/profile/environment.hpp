@@ -33,9 +33,24 @@ public:
   feature_blocks(const StatePtr &state) const;
   std::map<Id, StatisticView> feature_views(const StatePtr &state) const;
   StatisticView feature_view(const StatePtr &state, Id node_id) const;
+  // Borrowed node/record views captured under one lock; synchronous inference only.
+  struct BatchViews {
+    struct Entry {
+      const std::vector<NodePtr> *nodes = nullptr;
+      std::size_t offset = 0;
+    };
+    std::vector<Entry> states;
+    std::vector<StatisticView> views;
+  };
+  BatchViews batch_state_views(const std::vector<StatePtr> &states) const;
+  std::vector<StatisticView>
+  batch_added_views(const std::vector<StatePtr> &states) const;
   std::map<Id, std::map<std::string, std::shared_ptr<const Json>>>
   statistic_fields(const StatePtr &state) const override;
   Json cache(const StatePtr &state) const override;
+  Json profile_overlay() const;
+  std::shared_ptr<const Json> history_shared() const;
+  std::shared_ptr<const void> identity_token() const;
   Json profile() const override;
   Json time_calibration() const override;
   Json history() const override;

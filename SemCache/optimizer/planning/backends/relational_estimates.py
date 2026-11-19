@@ -76,6 +76,8 @@ def _estimation_filter_sql(sql):
     Its scalar NULL behavior differs, so only positive WHERE/ON conditions
     and their AND/OR children may be simplified; projections and NOT stay put.
     """
+    if "case" not in sql.lower():
+        return sql
     try:
         tree = sqlglot.parse_one(sql, read="duckdb")
     except SqlglotError:
@@ -278,6 +280,7 @@ def prepare_population_estimates(problem):
                     }
             if _SEMANTIC_CALL.search(sql):
                 raise ValueError("population SQL contains a semantic function")
+            sql = _estimation_filter_sql(sql)
             # Every stage exposes only bound value columns. Transport IDs must
             # not add windows, change DISTINCT keys, or leak across join stages.
             projection = ["NULL::VARCHAR __sample_id"] + [
@@ -292,7 +295,12 @@ def prepare_population_estimates(problem):
         finally:
             active.remove(node_id)
 
+    statements = {}
+
     def statement(node_id):
+        cached = statements.get(node_id)
+        if cached is not None:
+            return cached
         compile_node(node_id)
         ordered, visited = [], set()
 
@@ -309,9 +317,9 @@ def prepare_population_estimates(problem):
             reference(current) + " AS NOT MATERIALIZED (" + bodies[current] + ")"
             for current in ordered
         ]
-        return _estimation_filter_sql(
-            "WITH " + ",".join(definitions) + " SELECT * FROM " + reference(node_id)
-        )
+        compiled = "WITH " + ",".join(definitions) + " SELECT * FROM " + reference(node_id)
+        statements[node_id] = compiled
+        return compiled
 
     for op in problem.all_ops.values():
         op.pop("population_estimate_sql", None)

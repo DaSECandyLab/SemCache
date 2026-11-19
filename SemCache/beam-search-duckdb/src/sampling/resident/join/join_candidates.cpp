@@ -1,6 +1,6 @@
 #include "join_candidates.hpp"
-#include "../populations.hpp"
-#include "../random.hpp"
+#include "../support/populations.hpp"
+#include "../support/random.hpp"
 #include <unordered_map>
 
 namespace semcache::sampling::resident_detail {

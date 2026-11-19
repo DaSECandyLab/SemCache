@@ -9,18 +9,25 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from experiments.core.io import digest, save
-
-from .aggregates import aggregate_deviation
-from .matching import (
+from experiments.system_comparison.accuracy.native_summary import summarize_native
+from experiments.system_comparison.accuracy.offline_campaign import (
+    load_native_campaign,
+    write_report,
+)
+from experiments.system_comparison.accuracy.reporting.aggregates import (
+    aggregate_deviation,
+)
+from experiments.system_comparison.accuracy.scoring.matching import (
     SOURCE_GROUNDED_RUBRIC,
     TEXT_FIELDS,
     VERSION,
     finish_match,
     prepare_match,
 )
-from .native_summary import summarize_native
-from .offline_campaign import load_native_campaign, write_report
-from .teacher import judge_pairs, review_unresolved
+from experiments.system_comparison.accuracy.teacher import (
+    judge_pairs,
+    review_unresolved,
+)
 
 
 def prepare_campaign(run, references, teacher_config):

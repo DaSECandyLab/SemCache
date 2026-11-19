@@ -5,23 +5,17 @@ import io
 import json
 import time
 import urllib.error
-import urllib.request
 
 
 def send_completion(owner, model, forwarded, folder, route, record, trace, validate):
-    forwarded = json.loads(json.dumps(forwarded))
     payload = json.dumps(forwarded, ensure_ascii=False).encode()
     trace["calls"] += 1
-    request = urllib.request.Request(
-        model["endpoint"].rstrip("/") + "/chat/completions",
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + model.get("api_key", "EMPTY"),
-            "Connection": "close",
-            **model.get("headers", {}),
-        },
-    )
+    url = model["endpoint"].rstrip("/") + "/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + model.get("api_key", "EMPTY"),
+        **model.get("headers", {}),
+    }
     # Bound only simultaneous upstream HTTP requests. Native
     # workers and prompt batching remain unchanged; queued
     # requests wait for admission in arrival order.
@@ -45,14 +39,10 @@ def send_completion(owner, model, forwarded, folder, route, record, trace, valid
         compatibility_type = None
         while True:
             try:
-                open_request = (
-                    urllib.request.build_opener(urllib.request.ProxyHandler({})).open
-                    if model.get("disable_proxy")
-                    else urllib.request.urlopen
-                )
                 trace["attempts"] += 1
-                with open_request(request, timeout=owner.request_timeout) as response:
-                    result = json.load(response)
+                result = owner.http_post_json(
+                    model, url, payload, headers, owner.request_timeout
+                )
                 trace["http_responses"] = trace.get("http_responses", 0) + 1
                 # Keep the usage of each physical response, including responses
                 # subsequently retried because they were incomplete or invalid.
@@ -96,7 +86,7 @@ def send_completion(owner, model, forwarded, folder, route, record, trace, valid
                             "forwarded": forwarded,
                         },
                     )
-                    request.data = json.dumps(forwarded, ensure_ascii=False).encode()
+                    payload = json.dumps(forwarded, ensure_ascii=False).encode()
                     output_retries += 1
                     attempt += 1
                     continue
@@ -181,7 +171,7 @@ def send_completion(owner, model, forwarded, folder, route, record, trace, valid
                             "messages_unchanged": True,
                         },
                     )
-                    request.data = json.dumps(forwarded, ensure_ascii=False).encode()
+                    payload = json.dumps(forwarded, ensure_ascii=False).encode()
                     attempt += 1
                     continue
                 if (

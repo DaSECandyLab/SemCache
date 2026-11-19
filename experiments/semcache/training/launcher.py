@@ -365,7 +365,7 @@ def main():
         sys.argv[2] if named_dataset else config["training"].get("dataset")
     )
     if not resume and selected_dataset is not None:
-        from training.datasets import scoped_configuration
+        from training.workloads.datasets import scoped_configuration
 
         config = scoped_configuration(config, selected_dataset, CONFIG_PATH)
         if not named_run:

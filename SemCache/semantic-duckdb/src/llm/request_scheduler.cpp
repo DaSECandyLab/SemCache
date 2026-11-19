@@ -11,18 +11,20 @@
 namespace semantic {
 namespace {
 struct SharedRequestQueue {
-	SharedRequestQueue() {
-		const char *value = std::getenv("SEMCACHE_GLOBAL_HTTP_CONCURRENCY");
+	SharedRequestQueue(const char *limit_env, const char *audit_env) {
+		const char *value = std::getenv(limit_env);
 		if (!value || !*value)
 			return;
 		char *end = nullptr;
 		const long parsed = std::strtol(value, &end, 10);
 		if (!end || *end || parsed < 1 || parsed > 1024)
-			throw ValidationError("SEMCACHE_GLOBAL_HTTP_CONCURRENCY must be between 1 and 1024");
+			throw ValidationError(std::string(limit_env) + " must be between 1 and 1024");
 		limit = size_t(parsed);
-		const char *path = std::getenv("SEMCACHE_GLOBAL_HTTP_AUDIT");
-		if (path)
-			audit_path = path;
+		if (audit_env) {
+			const char *path = std::getenv(audit_env);
+			if (path)
+				audit_path = path;
+		}
 	}
 	std::mutex mutex;
 	std::condition_variable changed;
@@ -31,14 +33,18 @@ struct SharedRequestQueue {
 	std::string audit_path;
 };
 
-SharedRequestQueue &GlobalRequestQueue() {
-	static SharedRequestQueue queue;
-	return queue;
+SharedRequestQueue &RequestQueue(SharedRequestAdmission::Scope scope) {
+	if (scope == SharedRequestAdmission::Scope::External) {
+		static SharedRequestQueue external("SEMCACHE_EXTERNAL_HTTP_CONCURRENCY", nullptr);
+		return external;
+	}
+	static SharedRequestQueue local("SEMCACHE_GLOBAL_HTTP_CONCURRENCY", "SEMCACHE_GLOBAL_HTTP_AUDIT");
+	return local;
 }
 }
 
-SharedRequestAdmission::SharedRequestAdmission() {
-	auto &queue = GlobalRequestQueue();
+SharedRequestAdmission::SharedRequestAdmission(Scope scope) : scope(scope) {
+	auto &queue = RequestQueue(scope);
 	if (!queue.limit)
 		return;
 	std::unique_lock<std::mutex> guard(queue.mutex);
@@ -64,7 +70,7 @@ SharedRequestAdmission::~SharedRequestAdmission() {
 void SharedRequestAdmission::Release() {
 	if (!admitted)
 		return;
-	auto &queue = GlobalRequestQueue();
+	auto &queue = RequestQueue(scope);
 	std::lock_guard<std::mutex> guard(queue.mutex);
 	--queue.active;
 	admitted = false;
@@ -76,7 +82,8 @@ RequestScheduler::RequestScheduler(std::string id, LLMClient &client, std::ostre
                                    bool enforce_model_operator_order)
     : query_id(std::move(id)), client(client), audit_log(log),
       audit_mutex(shared_audit_mutex ? *shared_audit_mutex : own_audit_mutex), unrestricted(unrestricted),
-      max_inflight_per_model(max_inflight_per_model), enforce_model_operator_order(enforce_model_operator_order) {
+      parallelism(parallelism), max_inflight_per_model(max_inflight_per_model),
+      enforce_model_operator_order(enforce_model_operator_order) {
 	if (query_id.empty())
 		throw ValidationError("scheduler query_id must not be empty");
 	QuoteText(query_id);
@@ -159,7 +166,7 @@ std::shared_future<LLMResponse> RequestScheduler::Submit(LLMRequest request, std
 	// Normal execution has a bounded number of workers per physical model. Beam
 	// sampling explicitly removes that lane cap: each admitted request gets a
 	// worker, while the sampling ledger remains the independent request bound.
-	size_t desired_workers = queue.size() + active_requests;
+	size_t desired_workers = std::min(parallelism, queue.size() + active_requests);
 	if (!unrestricted) {
 		desired_workers = 0;
 		for (const auto &model : outstanding_models)
@@ -169,9 +176,6 @@ std::shared_future<LLMResponse> RequestScheduler::Submit(LLMRequest request, std
 		workers.emplace_back(&RequestScheduler::Worker, this);
 	changed.notify_one();
 	return future;
-}
-LLMResponse RequestScheduler::Infer(LLMRequest request) {
-	return Submit(std::move(request)).get();
 }
 void RequestScheduler::Worker() {
 	for (;;) {

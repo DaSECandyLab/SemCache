@@ -18,7 +18,6 @@ from planning.settings.configuration import (
     runtime_path,
     teacher_path,
 )
-
 from training.artifacts import read, save
 from training.references.answers import TrainingAnswers
 

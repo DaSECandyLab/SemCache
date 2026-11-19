@@ -2,7 +2,10 @@
 
 import copy
 
-from experiments.system_comparison.references.cache import TeacherCache, canonical_response
+from experiments.system_comparison.references.cache import (
+    TeacherCache,
+    canonical_response,
+)
 
 
 class PromptCache(TeacherCache):

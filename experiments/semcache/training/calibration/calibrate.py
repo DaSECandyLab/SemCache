@@ -13,7 +13,6 @@ from planning.prompt_layouts import BLOCK_ORDERS
 from planning.sampling import SampleRow
 from planning.state import digest, task_key
 from semantic_events import logical_rows
-
 from training.calibration.inputs import (
     FILTER_TASK,
     JOIN_TASK,
@@ -187,7 +186,6 @@ def calibrate_models(
     Query-specific boundaries are observed by Beam Search, never startup probes.
     """
     from planning.settings.configuration import load_config
-
     from training.calibration.cache import load_probe, store_probe
 
     options = load_config()["calibration"]

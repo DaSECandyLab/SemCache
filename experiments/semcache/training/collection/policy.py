@@ -14,11 +14,11 @@ PLAN_GENERATION_POLICIES = {
 }
 FEEDBACK_PROTOCOL = "two_search_two_execution_v1"
 ACCURACY_FEEDBACK_PROTOCOL = "three_accuracy_searches_v1"
-DUPLICATE_PLAN_POLICY = "strict_distinct_operator_type_trees_v4"
+DUPLICATE_PLAN_POLICY = "strict_distinct_operator_trees_and_join_positions_v5"
 
 
 class DistinctStructureUnavailable(ValueError):
-    """The final beam has no logical structure left for this query."""
+    """The final beam has no unseen logical structure or join position left."""
 
 FEEDBACK_COLLECTION_ORDER = (
     "estimated bootstrap unchanged; measured queries run two independent Beam searches and executions: "
@@ -47,53 +47,105 @@ def plan_signature(spec):
 
 
 def logical_structure_signature(spec, query):
-    """Compare operator-type trees, ignoring task, binding and implementation IDs."""
+    """Compare logical operator trees within a query, ignoring models and layouts."""
     nodes = {n["node_id"]: n for n in query["operators"]}
     if spec.get("tree_choices"):
         trees = []
         for region in spec["tree_choices"]:
             actions = {a["node_id"]: a for a in region["actions"]}
 
-            def tree(nid, visiting=frozenset()):
+            def tree(nid, visiting=frozenset(), region_actions=actions):
                 if nid in visiting:
                     raise ValueError("Cyclic plan structure")
                 kind = nodes[nid]["type"]
-                action = actions.get(nid)
+                action = region_actions.get(nid)
                 if action is None:
-                    return [kind]
-                children = [tree(child, visiting | {nid})
-                            for child in action.get("inputs", [])]
+                    return [kind, nid]
+                children = [
+                    tree(child, visiting | {nid}, region_actions)
+                    for child in action.get("inputs", [])
+                ]
                 if nodes[nid].get("join_commutative"):
                     children.sort(key=digest)
-                return [kind, children]
+                return [kind, nid, children]
 
             trees.append(tree(region["root"]))
         trees.sort(key=digest)
-        return digest({"operator_type_trees": trees})
-    kinds = {op["operator_id"]: op["kind"]
-             for op in query.get("semantic_operators", [])}
+        return digest({"operator_trees": trees})
+    kinds = {
+        op["operator_id"]: op["kind"] for op in query.get("semantic_operators", [])
+    }
     for node in nodes.values():
         kinds.setdefault(-node["node_id"] - 1, node["type"])
     if spec.get("predicate_order"):
-        orders = [[kinds[oid] for oid in region["operator_ids"]]
-                  for region in spec["predicate_order"]]
-        return digest({"operator_type_orders": sorted(orders)})
-    return digest({"operator_types": [kinds[a["operator_id"]]
-                                      for a in spec.get("actions", [])]})
+        orders = [
+            [(kinds[oid], oid) for oid in region["operator_ids"]]
+            for region in spec["predicate_order"]
+        ]
+        return digest({"operator_orders": sorted(orders)})
+    return digest(
+        {
+            "operator_ids": [
+                (kinds[a["operator_id"]], a["operator_id"])
+                for a in spec.get("actions", [])
+            ]
+        }
+    )
 
 
-def appstore_filter_before_join(query, spec):
-    """The category predicate is allowed; semantic filters must follow the join."""
+def join_position_signature(spec, query):
+    """Identify each join operator's position relative to semantic subtrees."""
     nodes = {n["node_id"]: n for n in query["operators"]}
-    for region in spec.get("tree_choices", []):
-        actions = region["actions"]
-        joins = [i for i, a in enumerate(actions)
-                 if (kind := nodes[a["node_id"]]["type"]) == "CROSS_PRODUCT"
-                 or "JOIN" in kind and not kind.startswith("SEMANTIC_")]
-        if joins and any(nodes[a["node_id"]]["type"] == "SEMANTIC_FILTER"
-                         for a in actions[:min(joins)]):
-            return True
-    return False
+    if not spec.get("tree_choices") or not any(
+        "JOIN" in node["type"] for node in nodes.values()
+    ):
+        return None
+    per_region = []
+    for region in spec["tree_choices"]:
+        actions = {a["node_id"]: a for a in region["actions"]}
+
+        def sem_set(nid, visiting=frozenset(), region_actions=actions):
+            if nid in visiting:
+                raise ValueError("Cyclic plan structure")
+            kind = nodes[nid]["type"]
+            current = [(kind, nid)] if kind.startswith("SEMANTIC_") else []
+            action = region_actions.get(nid)
+            if action is None:
+                return tuple(current)
+            nested = [
+                item
+                for child in action.get("inputs", [])
+                for item in sem_set(child, visiting | {nid}, region_actions)
+            ]
+            return tuple(sorted(set(current + nested)))
+
+        def collect_joins(nid, visiting=frozenset(), region_actions=actions):
+            if nid in visiting:
+                raise ValueError("Cyclic plan structure")
+            action = region_actions.get(nid)
+            if action is None:
+                return []
+            positions = []
+            kind = nodes[nid]["type"]
+            if "JOIN" in kind:
+                child_sems = [
+                    list(sem_set(child, visiting | {nid}, region_actions))
+                    for child in action.get("inputs", [])
+                ]
+                if nodes[nid].get("join_commutative"):
+                    child_sems.sort()
+                positions.append((kind, nid, child_sems))
+            for child in action.get("inputs", []):
+                positions.extend(collect_joins(child, visiting | {nid}, region_actions))
+            return positions
+
+        region_joins = sorted(collect_joins(region["root"]), key=digest)
+        if region_joins:
+            per_region.append(region_joins)
+    if not per_region:
+        return None
+    per_region.sort(key=digest)
+    return digest({"join_positions": per_region})
 
 
 def validate_minimum_accuracy(minimum):
@@ -115,14 +167,16 @@ def select_accuracy_rollout(
     minimum_accuracy,
     excluded_plan_signatures=(),
     excluded_structure_signatures=(),
+    excluded_join_positions=(),
     *,
     query,
 ):
     """Fastest feasible completion, with honest quality fallback and deduplication.
 
-    Each accuracy target must select a new logical structure. Among unseen
-    structures prefer feasible candidates, then sample a structure uniformly.
-    Exhaustion requests another search; it never falls back to layout-only changes.
+    Each accuracy target must select a new logical structure and, when joins
+    are present, a new join-operator position. Among unseen candidates prefer
+    feasible completions, then sample uniformly. Exhaustion requests another
+    search; it never falls back to layout-only changes.
     """
     validate_minimum_accuracy(minimum_accuracy)
     if not scores or any(
@@ -136,16 +190,21 @@ def select_accuracy_rollout(
         raise ValueError("Invalid completion accuracy or time prediction")
     signatures = [plan_signature(spec) for spec in plan_specs]
     structures = [logical_structure_signature(spec, query) for spec in plan_specs]
+    join_positions = [join_position_signature(spec, query) for spec in plan_specs]
     # A search may export several construction histories for the same plan.
     distinct = {}
     for index, signature in enumerate(signatures):
         distinct.setdefault(signature, []).append(index)
     excluded = set(excluded_plan_signatures)
     excluded_structures = set(excluded_structure_signatures)
-    excluded_structures.update(
-        structure for signature, structure in zip(signatures, structures)
-        if signature in excluded
-    )
+    excluded_joins = set(excluded_join_positions) - {None}
+    for signature, structure, join_position in zip(
+        signatures, structures, join_positions
+    ):
+        if signature in excluded:
+            excluded_structures.add(structure)
+            if join_position is not None:
+                excluded_joins.add(join_position)
 
     def feasible(pool):
         return [
@@ -184,25 +243,42 @@ def select_accuracy_rollout(
     replacement_pool = []
     replacement_scope = None
     unseen_structure_count = 0
-    duplicate = (signatures[preferred] in excluded
-                 or structures[preferred] in excluded_structures)
+    join_repeated = (
+        join_positions[preferred] is not None
+        and join_positions[preferred] in excluded_joins
+    )
+    duplicate = (
+        signatures[preferred] in excluded
+        or structures[preferred] in excluded_structures
+        or join_repeated
+    )
     if duplicate:
-        unseen = [i for i in indices if structures[i] not in excluded_structures]
+        unseen = [
+            i
+            for i in indices
+            if structures[i] not in excluded_structures
+            and (join_positions[i] is None or join_positions[i] not in excluded_joins)
+        ]
         if not unseen:
             raise DistinctStructureUnavailable(
-                "No unseen logical structure in the final beam; a different "
-                "model or layout does not satisfy structural diversity"
+                "No unseen logical structure and distinct join position in the "
+                "final beam; a different model or layout does not satisfy "
+                "structural diversity"
             )
         eligible = feasible(unseen) or unseen
         groups = {}
         for i in eligible:
-            groups.setdefault(structures[i], []).append(i)
+            groups.setdefault((structures[i], join_positions[i]), []).append(i)
         unseen_structure_count = len(groups)
         rng = random.Random(seed)
-        group = rng.choice(sorted(groups))
+        group = rng.choice(sorted(groups, key=lambda pair: (pair[0], pair[1] or "")))
         replacement_pool = eligible
         chosen = rng.choice(groups[group])
-        replacement_scope = "logical_structure"
+        replacement_scope = (
+            "logical_structure_and_join_position"
+            if join_positions[chosen] is not None
+            else "logical_structure"
+        )
     satisfied = (
         accuracies[chosen] is not None and accuracies[chosen] >= minimum_accuracy
     )
@@ -234,6 +310,8 @@ def select_accuracy_rollout(
         "preferred_plan_signature": signatures[preferred],
         "logical_structure_signature": structures[chosen],
         "preferred_logical_structure_signature": structures[preferred],
+        "join_position_signature": join_positions[chosen],
+        "preferred_join_position_signature": join_positions[preferred],
         "duplicate_detected": duplicate,
         "duplicate_replaced": chosen != preferred,
         "repeat_unavoidable": signatures[chosen] in excluded,
@@ -241,6 +319,10 @@ def select_accuracy_rollout(
         "replacement_scope": replacement_scope,
         "unseen_structure_candidate_count": unseen_structure_count,
         "structure_repeated": structures[chosen] in excluded_structures,
+        "join_position_repeated": (
+            join_positions[chosen] is not None
+            and join_positions[chosen] in excluded_joins
+        ),
         "structure_repeat_unavoidable": duplicate and structures[chosen] in excluded_structures,
         "replacement_policy": DUPLICATE_PLAN_POLICY
         if replacement_pool

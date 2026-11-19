@@ -3,6 +3,7 @@
 import copy
 import json
 import sys
+import threading
 from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
@@ -25,7 +26,12 @@ class PlanningPolicy:
         runtime_adaptation=None,
     ):
         config = config or (
-            SearchConfig.configured(inference_settings)
+            SearchConfig.configured(
+                inference_settings,
+                plan_generation=None
+                if checkpoint is not None
+                else "heuristic_requests",
+            )
             if inference_settings
             else SearchConfig()
         )
@@ -43,7 +49,8 @@ class PlanningPolicy:
         self.sampler_factory = sampler_factory
         self.runtime_sessions = {}
         self.runtime_history = None
-        from planning.execution.adaptation_monitor import AdaptationSettings
+        self._lock = threading.RLock()
+        from planning.execution.adaptation.monitor import AdaptationSettings
 
         self.adaptation_settings = runtime_adaptation or AdaptationSettings()
         self.runtime_adapters = {}
@@ -58,10 +65,43 @@ class PlanningPolicy:
                     "Runtime adaptation requires a trained value-model checkpoint"
                 )
 
+    def reset_history(self, request=None):
+        with self._lock:
+            if self.runtime_history is not None:
+                self.runtime_history.clear()
+            shared = getattr(self.sampler_factory, "history", None)
+            if shared is not None and shared is not self.runtime_history:
+                shared.clear()
+            return {"version": 1, "kind": "HistoryReset", "status": "ok"}
+
+    def ingest_history(self, request):
+        from planning.execution.runtime import update_history
+        from planning.observations.cache import CacheHistory
+
+        with self._lock:
+            history = self.runtime_history or getattr(
+                self.sampler_factory, "history", None
+            )
+            if history is None:
+                history = self.runtime_history = CacheHistory(":memory:")
+            events = request.get("events", [])
+            query_ir = request.get("query_ir") or self.query
+            if events and query_ir is not None:
+                update_history(
+                    events, query_ir, history, request.get("adaptive_sketch")
+                )
+            return {"version": 1, "kind": "HistoryIngested", "status": "ok"}
+
     def optimize(self, query):
-        if query.get("kind") == "RuntimeRequest":
+        kind = query.get("kind") if isinstance(query, dict) else None
+        if kind == "RuntimeRequest":
             return self.reoptimize(query)
-        self.query = query
+        if kind == "ResetHistory":
+            return self.reset_history(query)
+        if kind == "IngestHistory":
+            return self.ingest_history(query)
+        with self._lock:
+            self.query = query
         from planning.settings.modes import profile_for_mode
 
         profile = profile_for_mode(
@@ -74,42 +114,49 @@ class PlanningPolicy:
         session = (
             self.sampler_factory(problem) if self.sampler_factory else nullcontext(None)
         )
+        resolved_config = self.search.config.for_problem(problem)
+        search = (
+            self.search
+            if resolved_config == self.search.config
+            else ParetoBeamSearch(self.search.ranker, resolved_config)
+        )
         with session as sampler:
             problem.sampler = sampler
-            result = self.search.run(problem)
+            result = search.run(problem)
             if sampler is not None:
                 result["sampling"] = dict(sampler.calls)
             selected_state = (
-                self.search.choose_state(problem, result, self.preference)
+                search.choose_state(problem, result, self.preference)
                 if result["states"]
                 else None
             )
-            if (
-                self.search.uses_value_model or self.adaptation_settings.enabled
-            ) and selected_state is not None:
+            if self.adaptation_settings.enabled and selected_state is not None:
                 from planning.execution.feedback import freeze_problem
 
                 frozen, _ = freeze_problem(problem, [selected_state])
-                self.runtime_sessions[query["query_id"]] = (
-                    copy.deepcopy(query),
-                    frozen.profile,
-                )
-                if len(self.runtime_sessions) > 32:
-                    oldest = next(iter(self.runtime_sessions))
-                    del self.runtime_sessions[oldest]
-                    adapter = self.runtime_adapters.pop(oldest, None)
-                    if adapter is not None:
-                        adapter.close()
-        self.last_result = {k: v for k, v in result.items() if k != "states"}
+                with self._lock:
+                    self.runtime_sessions[query["query_id"]] = (
+                        copy.deepcopy(query),
+                        frozen.profile,
+                    )
+                    if len(self.runtime_sessions) > 32:
+                        oldest = next(iter(self.runtime_sessions))
+                        del self.runtime_sessions[oldest]
+                        adapter = self.runtime_adapters.pop(oldest, None)
+                        if adapter is not None:
+                            adapter.close()
+        summary = {k: v for k, v in result.items() if k != "states"}
+        with self._lock:
+            self.last_result = summary
         if result["constraint_satisfied"] is False and not result.get(
             "accuracy_fallback"
         ):
             print(result["reason"], file=sys.stderr, flush=True)
         if self.log:
-            with self.log.open("a") as output:
+            with self._lock, self.log.open("a") as output:
                 output.write(
                     json.dumps(
-                        dict(query_key=problem.key, **self.last_result),
+                        dict(query_key=problem.key, **summary),
                         ensure_ascii=False,
                         allow_nan=False,
                     )
@@ -123,12 +170,6 @@ class PlanningPolicy:
         from planning.execution.runtime import optimize_runtime
         from planning.observations.cache import CacheHistory
 
-        session = self.runtime_sessions.get(request.get("query_id"))
-        if session is None:
-            raise ValueError("Runtime query has no initial value-model session")
-        query, profile = session
-        if query != request.get("query_ir"):
-            raise ValueError("Runtime request changed its bound query")
         if request.get("chunk_policy"):
             if not self.adaptation_settings.enabled:
                 return {
@@ -138,19 +179,25 @@ class PlanningPolicy:
                     "updates": [],
                     "diagnostics": {"status": "runtime_adaptation_disabled"},
                 }
-            if query["query_id"] not in self.runtime_adapters:
-                from planning.execution.adaptation import ChunkAdaptationSession
+            with self._lock:
+                session = self.runtime_sessions.get(request.get("query_id"))
+                if session is None:
+                    raise ValueError("Runtime query has no initial value-model session")
+                query, profile = session
+                if query != request.get("query_ir"):
+                    raise ValueError("Runtime request changed its bound query")
+                if query["query_id"] not in self.runtime_adapters:
+                    from planning.execution.adaptation import ChunkAdaptationSession
 
-                self.runtime_adapters[query["query_id"]] = ChunkAdaptationSession(
-                    query,
-                    profile,
-                    self.runtime_ranker,
-                    self.search.config,
-                    self.adaptation_settings,
-                )
-            updates, diagnostics = self.runtime_adapters[query["query_id"]].check(
-                request
-            )
+                    self.runtime_adapters[query["query_id"]] = ChunkAdaptationSession(
+                        query,
+                        profile,
+                        self.runtime_ranker,
+                        self.search.config,
+                        self.adaptation_settings,
+                    )
+                adapter = self.runtime_adapters[query["query_id"]]
+            updates, diagnostics = adapter.check(request)
             return {
                 "version": 1,
                 "kind": "RuntimeUpdate",
@@ -158,16 +205,24 @@ class PlanningPolicy:
                 "updates": updates,
                 "diagnostics": diagnostics,
             }
-        if self.runtime_history is None:
-            self.runtime_history = getattr(
-                self.sampler_factory, "history", None
-            ) or CacheHistory(":memory:")
+        with self._lock:
+            session = self.runtime_sessions.get(request.get("query_id"))
+            if session is None:
+                raise ValueError("Runtime query has no initial value-model session")
+            query, profile = session
+            if query != request.get("query_ir"):
+                raise ValueError("Runtime request changed its bound query")
+            if self.runtime_history is None:
+                self.runtime_history = getattr(
+                    self.sampler_factory, "history", None
+                ) or CacheHistory(":memory:")
+            runtime_history = self.runtime_history
         updates = optimize_runtime(
             self.search.ranker,
             query,
             profile,
             request,
-            self.runtime_history,
+            runtime_history,
             self.search.config,
         )
         return {
@@ -178,16 +233,17 @@ class PlanningPolicy:
         }
 
     def close(self):
-        for adapter in self.runtime_adapters.values():
-            adapter.close()
-        self.runtime_adapters.clear()
-        shared_history = getattr(self.sampler_factory, "history", None)
-        if (
-            self.runtime_history is not None
-            and self.runtime_history is not shared_history
-        ):
-            self.runtime_history.close()
-        close = getattr(self.sampler_factory, "close", None)
-        if close is not None:
-            close()
-        self.runtime_sessions.clear()
+        with self._lock:
+            for adapter in self.runtime_adapters.values():
+                adapter.close()
+            self.runtime_adapters.clear()
+            shared_history = getattr(self.sampler_factory, "history", None)
+            if (
+                self.runtime_history is not None
+                and self.runtime_history is not shared_history
+            ):
+                self.runtime_history.close()
+            close = getattr(self.sampler_factory, "close", None)
+            if close is not None:
+                close()
+            self.runtime_sessions.clear()

@@ -255,7 +255,7 @@ class DuckDBEvaluator:
         policy = policy_override or ExplicitPolicy(actions, source_query)
         socket = Path(self.temporary.name) / "policy.sock"
         if runtime_options is not None:
-            from planning.execution.adaptation_service import RuntimeOptimizerServer
+            from planning.execution.adaptation.service import RuntimeOptimizerServer
 
             server_class = RuntimeOptimizerServer
         else:

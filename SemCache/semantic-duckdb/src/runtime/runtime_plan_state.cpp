@@ -236,6 +236,26 @@ void RuntimePlanState::BeginChunk(int64_t id, uint64_t first_input, uint64_t cap
 	     {"action", Action(batch->node.semantic)}});
 }
 
+void RuntimePlanState::ExtendChunk(int64_t id, uint64_t additional_capacity) {
+	if (!chunk_mode)
+		return;
+	auto &entry = entries.at(id);
+	if (!entry.active || entry.status != Status::RUNNING || !additional_capacity)
+		throw ValidationError("Invalid runtime chunk extension");
+	entry.capacity += additional_capacity;
+	log({{"event", "batch_extended"},
+	     {"operator_id", id},
+	     {"batch_seq", entry.active->sequence},
+	     {"config_generation", entry.active->generation},
+	     {"added_capacity", additional_capacity},
+	     {"capacity", entry.capacity}});
+}
+
+uint64_t RuntimePlanState::ActiveEnd(int64_t id) const {
+	const auto &entry = entries.at(id);
+	return entry.active ? entry.active->first_input + entry.capacity : entry.completed;
+}
+
 void RuntimePlanState::EndChunk(int64_t id) {
 	if (!chunk_mode)
 		return;

@@ -263,7 +263,7 @@ struct PrefixSummary {
     }
   }
   size_t capacity, maximum;
-  uint64_t count = 0, total_length = 0, truncated = 0;
+  uint64_t count = 0, total_length = 0, truncated = 0, observed_max_length = 0;
   std::vector<std::pair<size_t, BottomKSketch>> sketches;
   std::string serialized;
   bool failed = false;
@@ -282,7 +282,9 @@ struct PrefixSummary {
           }
         });
     Increment(count, frequency);
-    Increment(total_length, Multiply(std::min(characters, maximum), frequency));
+    const auto tracked = std::min(characters, maximum);
+    Increment(total_length, Multiply(tracked, frequency));
+    observed_max_length = std::max<uint64_t>(observed_max_length, tracked);
     Increment(truncated, characters > maximum ? frequency : 0);
     return characters;
   }
@@ -301,6 +303,7 @@ struct PrefixSummary {
                    {"anchors", depths}}},
                  {"count", count},
                  {"total_length", total_length},
+                 {"observed_max_length", observed_max_length},
                  {"truncated", truncated},
                  {"sketches", values}});
   }

@@ -12,6 +12,10 @@ from pathlib import Path
 
 import duckdb
 
+from experiments.core.paths import (
+    load_translated_manifest,
+    translated_manifest_digest,
+)
 from experiments.core.sql import literal
 from experiments.validation.audits.fixtures import ROOT, TABLES, create_fixture
 
@@ -42,10 +46,16 @@ def main(output, manifest_path=None):
                     f"CREATE TABLE \"{table}\" AS SELECT * FROM read_csv({literal(str(path))},header=true,columns={{{schema}}},nullstr='__AUDIT_NULL__',allow_quoted_nulls=false);"
                 )
         setups[dataset] = "\n".join(statements)
-    manifest_path = (
-        manifest_path or ROOT / "benchmarks/queries/translated/manifest.json"
-    ).resolve()
-    manifest = json.loads(manifest_path.read_text())
+    if manifest_path is not None:
+        manifest_path = Path(manifest_path).resolve()
+        manifest = json.loads(manifest_path.read_text())
+        manifest_label = str(manifest_path.relative_to(ROOT))
+        manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    else:
+        manifest_path = ROOT / "benchmarks/queries/translated/manifest.json"
+        manifest = load_translated_manifest()
+        manifest_label = str(manifest_path.relative_to(ROOT))
+        manifest_sha256 = translated_manifest_digest()
     records = []
     binaries = {
         "semcache": ROOT / "SemCache/build/release/duckdb",
@@ -151,8 +161,8 @@ def main(output, manifest_path=None):
     summary = {
         "model_requests": 0,
         "binding_scope": "actual native EXPLAIN; fixed legal SemCache plan, PLOP sampling disabled, model inference not executed",
-        "query_manifest": str(manifest_path.relative_to(ROOT)),
-        "query_manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "query_manifest": manifest_label,
+        "query_manifest_sha256": manifest_sha256,
         "bound": sum(r["bound"] for r in records),
         "total": len(records),
         "records": records,

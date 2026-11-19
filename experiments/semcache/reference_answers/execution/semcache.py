@@ -11,7 +11,6 @@ import threading
 from collections import Counter
 from pathlib import Path
 
-from experiments.system_comparison.accuracy.artifacts import result_digest, typed_result
 from planning.backends.execution.evaluator import DuckDBEvaluator
 from planning.backends.execution.sql import quote
 from planning.backends.sampling import NativeSamplingFactory
@@ -20,9 +19,13 @@ from planning.search.heuristics import GOTDF_BLOCK_ORDER
 from planning.settings.configuration import load_config, response_cache_settings
 from planning.settings.modes import profile_for_mode, sampling_for_mode
 from planning.state import SearchProblem
+from reference_answers.sql.aggregate import capture_plan
 from training.artifacts import save
 
-from reference_answers.sql.aggregate import capture_plan
+from experiments.system_comparison.accuracy.reporting.artifacts import (
+    result_digest,
+    typed_result,
+)
 
 
 class HeuristicTeacherPolicy:

@@ -29,6 +29,14 @@ def activate_native(settings):
     os.environ["SEMCACHE_RESPONSE_CACHE"] = json.dumps(
         response_cache_settings(settings)
     )
+    external_limit = settings.get("execution", {}).get(
+        "max_concurrent_external_teacher_requests", 16
+    )
+    if (
+        external_limit is not None
+        and "SEMCACHE_EXTERNAL_HTTP_CONCURRENCY" not in os.environ
+    ):
+        os.environ["SEMCACHE_EXTERNAL_HTTP_CONCURRENCY"] = str(external_limit)
     path = str(runtime_path(settings, "native_bindings") / "planning/kernels")
     if path not in kernels.__path__:
         kernels.__path__.insert(0, path)
@@ -442,8 +450,37 @@ def load_config(path=None):
         raise ValueError(
             "execution.max_concurrent_requests_per_model must be an integer in [1, 1024]"
         )
+    external_teacher_limit = settings["execution"].get(
+        "max_concurrent_external_teacher_requests", 16
+    )
+    if external_teacher_limit is not None and (
+        type(external_teacher_limit) is not int
+        or not 1 <= external_teacher_limit <= 1024
+    ):
+        raise ValueError(
+            "execution.max_concurrent_external_teacher_requests must be an integer in [1, 1024] or null"
+        )
     if type(settings["execution"].get("enforce_model_operator_order")) is not bool:
         raise ValueError("execution.enforce_model_operator_order must be a boolean")
+    search_inference = settings["search"].get("inference")
+    if not isinstance(search_inference, dict):
+        raise ValueError("search.inference must be an object")
+    layer_pruning = search_inference.get("layer_pruning", "pareto")
+    if layer_pruning not in ("pareto", "accuracy_time", "grouped"):
+        raise ValueError(
+            "search.inference.layer_pruning must be pareto, accuracy_time or grouped"
+        )
+    grouped_threshold = search_inference.get("grouped_operator_threshold")
+    if grouped_threshold is not None and (
+        type(grouped_threshold) is not int or grouped_threshold < 0
+    ):
+        raise ValueError(
+            "search.inference.grouped_operator_threshold must be a nonnegative integer or null"
+        )
+    for key in ("max_structure_groups", "max_implementations_per_group"):
+        value = search_inference.get(key)
+        if value is not None and (type(value) is not int or value < 1):
+            raise ValueError(f"search.inference.{key} must be a positive integer")
     build_width = settings.get("statistics", {}).get("build_parallelism")
     if type(build_width) is not int or not 1 <= build_width <= 64:
         raise ValueError("statistics.build_parallelism must be an integer in [1,64]")
@@ -476,8 +513,13 @@ def load_config(path=None):
     semcache = reference.get("semcache")
     if not isinstance(semcache, dict):
         raise ValueError("reference_answers.semcache must be an object")
-    if "verify_on_second_use" in semcache and type(semcache["verify_on_second_use"]) is not bool:
-        raise ValueError("reference_answers.semcache.verify_on_second_use must be a boolean")
+    if (
+        "verify_on_second_use" in semcache
+        and type(semcache["verify_on_second_use"]) is not bool
+    ):
+        raise ValueError(
+            "reference_answers.semcache.verify_on_second_use must be a boolean"
+        )
     if (
         semcache.get("planner") != "heuristic_requests"
         or semcache.get("layout") != "GOTDF"
@@ -544,8 +586,7 @@ def teacher_path(settings, config=None):
     if teacher.parent == Path("."):
         return (TEACHER_CONFIG_DIR / teacher).resolve()
     return (
-        (Path(config) if config else DEFAULT_CONFIG).resolve().parent
-        / teacher
+        (Path(config) if config else DEFAULT_CONFIG).resolve().parent / teacher
     ).resolve()
 
 

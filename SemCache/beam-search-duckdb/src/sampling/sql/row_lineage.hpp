@@ -1,5 +1,5 @@
 #pragma once
-#include "../common/inputs.hpp"
+#include "../common/pipeline/inputs.hpp"
 #include <algorithm>
 #include <unordered_map>
 

@@ -112,12 +112,21 @@ def current_spec(request, updates=()):
     return spec
 
 
-def runtime_snapshot(query, profile, request, history, *, observed=True, updates=()):
+def runtime_snapshot(
+    query,
+    profile,
+    request,
+    history,
+    *,
+    observed=True,
+    updates=(),
+):
     """Materialize current runtime features without sampling or new LLM calls."""
     from planning.kernels.sampling import prepare_profile
     from planning.learning.features.graph import encode
 
-    problem, entries, observations = runtime_problem(query, profile, request, history)
+    prepared = runtime_problem(query, profile, request, history)
+    problem, entries, observations = prepared
     path = problem.replay(current_spec(request, updates), structural_only=True)
     proxy = prepare_profile(problem)
     environment = proxy.native_sampler
@@ -143,13 +152,20 @@ def runtime_snapshot(query, profile, request, history, *, observed=True, updates
                     state.native_handle, oid, entries[oid], observation
                 )
     state = proxy.state(problem, path[-1].native_handle)
+    problem._runtime_prepared = prepared
     return problem, state, encode(problem, state)
 
 
-def optimize_runtime(model, query, profile, request, history, config):
+def optimize_runtime(model, query, profile, request, history, config, prepared=None):
     if not model or not model.value_available:
         raise ValueError("Runtime value policy requires a trained checkpoint")
-    problem, entries, observed = runtime_problem(query, profile, request, history)
+    from contextlib import nullcontext
+
+    problem, entries, observed = (
+        prepared
+        if prepared is not None
+        else runtime_problem(query, profile, request, history)
+    )
     baseline = problem.replay(current_spec(request), structural_only=True)
     from planning.kernels import _search_core
     from planning.kernels.raw_batch import RawFeatureContext
@@ -161,19 +177,25 @@ def optimize_runtime(model, query, profile, request, history, config):
     native = problem.native_problem
     if native is None:
         raise ValueError("Runtime optimization requires native structural ownership")
-    return _search_core.search_runtime(
-        native,
-        environment,
-        {
-            "request": request,
-            "baseline_actions": [step.actions[-1] for step in baseline[1:]],
-            "domain": {str(oid): choices for oid, choices in problem.domain.items()},
-            "beam_width": config.beam_width,
-            "seed": config.seed,
-            "max_expansions": config.max_expansions,
-            "max_seconds": config.max_seconds,
-            "a_min": problem.constraints.get("a_min"),
-            "preference": config.preference,
-        },
-        lambda batch: predict_scores(problem, context, model, batch),
-    )
+    if getattr(model, "training", False):
+        model.eval()
+    session = getattr(model, "inference_session", None)
+    feature_context = context.native_features(model)
+    with session() if callable(session) else nullcontext():
+        return _search_core.search_runtime(
+            native,
+            environment,
+            {
+                "request": request,
+                "baseline_actions": [step.actions[-1] for step in baseline[1:]],
+                "domain": {str(oid): choices for oid, choices in problem.domain.items()},
+                "beam_width": config.beam_width,
+                "seed": config.seed,
+                "max_expansions": config.max_expansions,
+                "max_seconds": config.max_seconds,
+                "a_min": problem.constraints.get("a_min"),
+                "preference": config.preference,
+            },
+            lambda batch: predict_scores(problem, context, model, batch),
+            feature_context=feature_context,
+        )

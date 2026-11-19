@@ -71,9 +71,7 @@ def completion_labels(data, source, *, split="train", estimated_timeout=None):
         row["context"] = (
             contexts[0] if len(contexts) == 1 else "merged-" + digest(contexts)
         )
-        paired = [
-            p for p in plans if p["time"] is not None and p["accuracy"] is not None
-        ]
+        paired = [p for p in plans if p["time"] is not None and p["accuracy"] is not None]
         seconds = quality = bound = bound_source = None
         if paired and not any(p.get("timeout_penalty") for p in plans):
             # Both means use exactly the same completed executions. A timeout

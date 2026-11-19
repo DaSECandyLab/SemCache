@@ -13,7 +13,10 @@ public:
   }
   FieldWorkers(const FieldWorkers &) = delete;
   FieldWorkers &operator=(const FieldWorkers &) = delete;
-  std::size_t width() const { return threads_.size() + 1; }
+  std::size_t width() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return threads_.size() + 1;
+  }
   void Run(std::size_t count, const std::function<void(std::size_t)> &operation,
            std::vector<std::size_t> order = {}) {
     if (limit_ < 2 || count < 2) {
@@ -25,10 +28,13 @@ public:
       order.resize(count);
       std::iota(order.begin(), order.end(), 0);
     }
-    while (threads_.size() + 1 < std::min(limit_, count))
-      threads_.emplace_back([this] { Worker(); });
     {
       std::lock_guard<std::mutex> lock(mutex_);
+      const auto target_threads = std::min(limit_, count);
+      const std::size_t start_generation = generation_;
+      while (threads_.size() + 1 < target_threads)
+        threads_.emplace_back(
+            [this, start_generation] { Worker(start_generation); });
       order_ = std::move(order);
       errors_.assign(count, nullptr);
       operation_ = operation;
@@ -62,8 +68,7 @@ private:
       }
     }
   }
-  void Worker() {
-    std::size_t generation = 0;
+  void Worker(std::size_t generation) {
     std::unique_lock<std::mutex> lock(mutex_);
     while (true) {
       ready_.wait(lock, [&] { return stop_ || generation != generation_; });
@@ -84,7 +89,7 @@ private:
   std::vector<std::exception_ptr> errors_;
   std::function<void(std::size_t)> operation_;
   std::atomic<std::size_t> next_{0};
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
   std::condition_variable ready_, finished_;
 };
 

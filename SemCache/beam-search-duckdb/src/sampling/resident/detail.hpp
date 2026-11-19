@@ -1,19 +1,19 @@
 #pragma once
 #include "../common/exact_integer.hpp"
 #include "../common/operators.hpp"
-#include "../common/parallel.hpp"
-#include "../common/stage_pipeline.hpp"
-#include "../common/ordered_tasks.hpp"
+#include "../common/pipeline/parallel.hpp"
+#include "../common/pipeline/stage_pipeline.hpp"
+#include <mutex>
 #include "../statistics/population_moments.hpp"
 #include "../statistics/sample_weights.hpp"
 #include "../statistics/value_metrics.hpp"
-#include "numeric.hpp"
-#include "populations.hpp"
-#include "random.hpp"
+#include "support/numeric.hpp"
+#include "support/populations.hpp"
+#include "support/random.hpp"
 #include "survival/sampled_rates.hpp"
 #include "survival/source_evidence.hpp"
-#include "timing.hpp"
-#include "types.hpp"
+#include "support/timing.hpp"
+#include "support/types.hpp"
 #include <tuple>
 #include <unordered_map>
 
@@ -66,42 +66,7 @@ struct NativeSampler::Impl {
   Json imported, profile_, history_, settings, sketch_config;
   std::shared_ptr<NativeSQLBackend> backend;
   StagePipeline<Json> sql_pipeline;
-  struct StateWorker {
-    std::shared_ptr<NativeSQLBackend> backend;
-    StagePipeline<Json> pipeline;
-  };
-  std::unique_ptr<OrderedTasks> state_workers;
-  std::vector<std::unique_ptr<StateWorker>> state_slots;
-  struct StateActor {
-    Impl &owner;
-    OrderedTasks::Task &task;
-    StateWorker &worker;
-    std::shared_ptr<NativeSQLBackend> saved;
-    StateActor(Impl &, OrderedTasks::Task &, StateWorker &);
-    ~StateActor();
-    void leave();
-    void enter();
-  };
-  static thread_local StateActor *state_actor;
-  void state_turn();
-  Json state_backend_call(const std::function<Json()> &,
-                          const std::function<void()> &prepare = {});
-  void run_state_services(std::size_t count,
-                          const std::function<void(std::size_t)> &);
   std::size_t pending_selection = 0;
-  std::map<std::string, std::size_t> physical_claims, selection_claims;
-  std::map<std::pair<const void *, std::string>, std::set<std::size_t>>
-      claim_waiters;
-  struct StateClaim {
-    Impl &owner;
-    std::map<std::string, std::size_t> &claims;
-    std::vector<std::string> keys;
-    std::optional<std::size_t> ticket;
-    StateClaim(Impl &, std::map<std::string, std::size_t> &,
-               std::vector<std::string>);
-    void release();
-    ~StateClaim();
-  };
   struct QualityWorker {
     std::shared_ptr<NativeSQLBackend> backend;
     StagePipeline<Json> pipeline;
@@ -175,9 +140,6 @@ struct NativeSampler::Impl {
       std::make_shared<PopulationFingerprints>();
   RequestLedger ledger;
   std::map<Id, std::size_t> selection_requests_by_operator;
-  std::map<Id, std::pair<std::string, Json>> relational_fallback_cache;
-  Json relational_fallback_prior(const NodePtr &node, const Json &op,
-                                 const StateData &data);
   std::set<Id> directly_sampled_operators;
   std::vector<Id> accuracy_operator_ids;
   std::size_t accuracy_batch_limit;
@@ -292,9 +254,6 @@ struct NativeSampler::Impl {
                              double ordinary_effective);
   void record_filter(const NodePtr &node, const Json &op,
                      const SampleInputs &inputs, const Selection &selection);
-  std::optional<resident_detail::ConditionEstimate>
-  conditional_selectivity(const NodePtr &node, const Json &op,
-                          const StateData &data, CoreObservation &core);
   Selection join_batch(const Json &op, Selection selection,
                        std::size_t input_count, bool full_join_input = false);
   Selection sample_join(const Json &op, const SampleInputs &inputs,
@@ -336,9 +295,6 @@ struct NativeSampler::Impl {
                                        std::size_t source_limit = 0);
   std::shared_ptr<const resident_detail::EvidenceNode>
   evidence_node(const NodePtr &node, const StateData &data);
-  std::optional<resident_detail::ContextPrior::Estimate>
-  shared_selectivity(const Json &info, CoreObservation &core);
-  void publish_depth_selectivity(const Json &info, CoreObservation &core);
   Json depth_selectivity(const CoreObservation &core, const Json &info,
                          const std::string &relation,
                          const std::string &field) const;
@@ -361,6 +317,11 @@ struct NativeSampler::Impl {
                              const Json &action, const Json *pairs,
                              const Json &observation, const Json &progress);
   void observe(const StatePtr &state);
+  void replay_semantic_node(const StatePtr &state, const NodePtr &node,
+                            StateData &data, const std::vector<NodePtr> &nodes,
+                            const std::string &nid,
+                            std::shared_ptr<Observation> &observation,
+                            std::shared_ptr<CoreObservation> &core);
   std::size_t selection_remaining() const {
     return ledger.remaining() - std::min(ledger.remaining(), pending_selection);
   }

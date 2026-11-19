@@ -222,7 +222,7 @@ def render(run: Path) -> Path:
         lines.append(f"- 错误：`{status['error']}`")
     if status.get("updated_at"):
         lines.append(f"- 更新时间 {status['updated_at']}")
-    from .calibration_report import display_model
+    from .reports.calibration_report import display_model
 
     services = [
         f"{display_model(name)} {'✔' if info.get('healthy') else '✘'}"
@@ -296,7 +296,7 @@ def render(run: Path) -> Path:
         lines.append("- 当前阶段：初始全局校准已部分完成")
     else:
         lines.append("- 当前阶段：尚无已完成的初始全局校准结果")
-    from .calibration_report import calibration_tables
+    from .reports.calibration_report import calibration_tables
 
     calibration_tables(run, lines, live)
 
@@ -436,7 +436,7 @@ def refresh_reports(run: Path, checked=None):
 
 
 def _refresh_reports(run: Path, checked=None):
-    from .loss_report import render as render_loss
+    from .reports.loss_report import render as render_loss
 
     checkpoints = {
         str(p): p.stat().st_mtime_ns for p in run.glob("*/round-*/model/value.pt")
@@ -445,10 +445,10 @@ def _refresh_reports(run: Path, checked=None):
         "phase"
     ) == "waiting_shared_resources"
     if not waiting and checkpoints != (checked or {}):
-        from .loss_check import check
+        from .reports.loss_check import check
 
         check(run)
-    from .collection_report import render as render_collection
+    from .reports.collection_report import render as render_collection
 
     render_loss(run)
     render(run)

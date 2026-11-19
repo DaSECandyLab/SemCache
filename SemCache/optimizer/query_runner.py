@@ -4,6 +4,7 @@
 import argparse
 import json
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -24,6 +25,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def quote(value):
     return "'" + str(value).replace("'", "''") + "'"
+
+
+def send_optimizer_rpc(socket_path: Path, payload: dict, timeout_ms: int) -> dict:
+    from optimizer_server import read_frame, write_frame
+
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+        connection.settimeout(max(1.0, timeout_ms / 1000.0))
+        connection.connect(str(socket_path))
+        write_frame(connection, payload)
+        response = read_frame(connection)
+    if isinstance(response, dict) and "error" in response:
+        raise ValueError(response["error"])
+    return response
 
 
 def verify_row(row, spec, action, logical):
@@ -287,10 +301,28 @@ def main():
     parser.add_argument(
         "--output-dir", type=Path, required=True, help="New artifact directory"
     )
+    parser.add_argument(
+        "--reset-optimizer-history",
+        action="store_true",
+        help="Reset cross-query prefix cache history in optimizer_server before running",
+    )
+    parser.add_argument(
+        "--ingest-optimizer-history",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Send executed prompt prefix history back to optimizer_server after completion",
+    )
     args = parser.parse_args()
     if args.history and args.runtime:
         parser.error(
             "--history currently requires static execution; mixed runtime generations need separate profiles"
+        )
+    optimizer_socket = args.optimizer_socket.resolve()
+    if args.reset_optimizer_history:
+        send_optimizer_rpc(
+            optimizer_socket,
+            {"version": 1, "kind": "ResetHistory"},
+            args.optimizer_timeout_ms,
         )
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -412,6 +444,20 @@ def main():
             for line in (output / "telemetry.jsonl").read_text().splitlines()
         ]
         decision, report = verify(events)
+        if args.ingest_optimizer_history:
+            try:
+                send_optimizer_rpc(
+                    optimizer_socket,
+                    {
+                        "version": 1,
+                        "kind": "IngestHistory",
+                        "query_ir": decision["query_ir"],
+                        "events": events,
+                    },
+                    args.optimizer_timeout_ms,
+                )
+            except (FileNotFoundError, ConnectionRefusedError):
+                pass
         run["observed_http_concurrency"] = max(
             (e["concurrency"] for e in events if e["event"] == "submit"), default=0
         )

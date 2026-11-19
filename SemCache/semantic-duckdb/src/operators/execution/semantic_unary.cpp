@@ -61,7 +61,7 @@ struct UnarySourceState : SemanticSourceState {
 	vector<bool> pending_ready;
 	idx_t pending_begin = 0, pending_end = 0;
 	idx_t row = 0;
-	bool admitted = false, stopped = false;
+	bool admitted = false, stopped = false, chunk_open = false;
 	bool concurrent_execution = false, chunk_execution = false, input_complete = false;
 	std::deque<UnaryPendingRow> execution_pending;
 	SemanticPendingWindow execution_window;
@@ -151,10 +151,15 @@ public:
 			while (!state.input_complete && !upstream_blocked &&
 			       state.execution_window.CanAdmit(state.execution_pending.size(), runtime.max_inflight_per_model)) {
 				if (!state.admitted || state.row == state.input.size()) {
-					if (state.admitted && state.chunk_execution) {
-						if (!state.execution_pending.empty())
+					if (state.chunk_execution && state.chunk_open) {
+						runtime.Reoptimize(context.client);
+						if (state.execution_pending.empty()) {
+							runtime.EndChunk(context.client, config.node.semantic.operator_id);
+							state.chunk_open = false;
+						} else if (runtime.HasPendingPlanUpdate(config.node.semantic.operator_id)) {
+							state.admitted = false;
 							break;
-						runtime.EndChunk(context.client, config.node.semantic.operator_id);
+						}
 					}
 					state.admitted = false;
 					state.input.Reset();
@@ -168,13 +173,20 @@ public:
 					local.executor.Execute(state.input, local.arguments);
 					state.row = 0;
 					state.admitted = true;
-					if (state.chunk_execution)
-						runtime.BeginChunk(context.client, config.node.semantic.operator_id, counts.first,
-						                   state.input.size());
+					if (state.chunk_execution) {
+						if (!state.chunk_open) {
+							runtime.BeginChunk(context.client, config.node.semantic.operator_id, counts.first,
+							                   state.input.size());
+							state.chunk_open = true;
+						} else {
+							runtime.ExtendChunk(context.client, config.node.semantic.operator_id, state.input.size());
+						}
+					}
 				}
 				state.execution_pending.emplace_back();
 				auto &request = state.execution_pending.back();
 				request.input_index = counts.first + state.execution_pending.size() - 1;
+				request.output_values.reserve(state.input.ColumnCount());
 				for (idx_t col = 0; col < state.input.ColumnCount(); ++col)
 					request.output_values.push_back(state.input.GetValue(col, state.row));
 				try {
@@ -198,6 +210,10 @@ public:
 				if (emitted)
 					return publish();
 				if (state.input_complete) {
+					if (state.chunk_execution && state.chunk_open) {
+						runtime.EndChunk(context.client, config.node.semantic.operator_id);
+						state.chunk_open = false;
+					}
 					holder->Finish(context.client, config);
 					return SourceResultType::FINISHED;
 				}

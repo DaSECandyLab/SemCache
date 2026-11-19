@@ -46,25 +46,56 @@ RuntimeProgress::RuntimeProgress(const Json &query, const Json &estimates, uint6
 		throw ValidationError("Runtime total input cardinality overflow");
 }
 
+void RuntimeProgress::ObserveChunk(int64_t id, uint64_t first_input, uint64_t capacity) {
+	auto &entry = entries.at(id);
+	if (entry.done)
+		throw ValidationError("Runtime chunk observed after operator finalization");
+	const double known = static_cast<double>(first_input) + static_cast<double>(capacity);
+	if (known > entry.expected) {
+		total += known - entry.expected;
+		entry.expected = known;
+	}
+}
+
 void RuntimeProgress::Observe(int64_t id) {
 	auto &entry = entries.at(id);
 	if (entry.done)
 		throw ValidationError("Runtime input completed after operator finalization");
-	const auto before = std::min(double(entry.completed), entry.expected);
 	++entry.completed;
-	processed += std::min(double(entry.completed), entry.expected) - before;
+	if (static_cast<double>(entry.completed) > entry.expected) {
+		total += static_cast<double>(entry.completed) - entry.expected;
+		entry.expected = static_cast<double>(entry.completed);
+	}
+	processed += 1.0;
 }
 
 void RuntimeProgress::Finish(int64_t id) {
 	auto &entry = entries.at(id);
 	if (!entry.done) {
-		processed += entry.expected - std::min(double(entry.completed), entry.expected);
+		const double before_contrib = std::min(double(entry.completed), entry.expected);
+		const double final_expected = std::max(1.0, double(entry.completed));
+		total += final_expected - entry.expected;
+		entry.expected = final_expected;
+		processed += final_expected - before_contrib;
 		entry.done = true;
 	}
 }
 
 double RuntimeProgress::Fraction() const {
-	return total ? std::min(1.0, std::max(0.0, processed / total)) : 1.0;
+	if (AllDone())
+		return 1.0;
+	if (!total)
+		return 0.0;
+	if (processed >= total)
+		return processed / (total + 1.0);
+	return std::min(1.0, std::max(0.0, processed / total));
+}
+
+bool RuntimeProgress::AllDone() const {
+	for (const auto &entry : entries)
+		if (!entry.second.done)
+			return false;
+	return true;
 }
 
 uint64_t RuntimeProgress::TakeDue() {

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections import Counter
 import re
+from collections import Counter
 
 import sqlglot
 from sqlglot import exp

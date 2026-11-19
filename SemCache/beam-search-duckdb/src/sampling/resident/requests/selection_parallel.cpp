@@ -15,18 +15,7 @@ bool NativeSampler::Impl::resolve_parallel_groups(
   if (concurrency > 1024)
     throw std::invalid_argument(
         "Sampling model concurrency must be in [1, 1024]");
-  std::set<std::string> claimed;
-  if (state_actor)
-    for (const auto &group : observed)
-      if (!ledger.find(group.key))
-        claimed.insert(group.key);
-  StateClaim claim(*this, selection_claims, {claimed.begin(), claimed.end()});
   auto available = selection_remaining();
-  while (state_actor && !available && pending_selection) {
-    const auto before = pending_selection;
-    state_actor->task.wait([&] { return pending_selection < before; });
-    available = selection_remaining();
-  }
   std::vector<const Group *> missing;
   for (const auto &group : observed)
     if (!ledger.find(group.key))
@@ -192,8 +181,6 @@ bool NativeSampler::Impl::resolve_parallel_groups(
       }
   }
   pending_selection -= reserved;
-  if (state_actor)
-    state_actor->task.notify();
   backend_seconds +=
       std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
           .count();

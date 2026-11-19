@@ -9,7 +9,7 @@ namespace semantic_extension {
 
 SemanticOperatorState::SemanticOperatorState(ExecutionContext &context,
                                              const vector<unique_ptr<Expression>> &expressions)
-    : executor(context.client), selection(STANDARD_VECTOR_SIZE) {
+    : executor(context.client) {
 	vector<LogicalType> types;
 	for (auto &expression : expressions) {
 		executor.AddExpression(*expression);
@@ -309,17 +309,26 @@ Value InferSemanticValue(ExecutionContext &context, const SemanticBindData &bind
 		auto client_context = &context.client;
 		auto finish = [&runtime, &binding, client_context, operator_id, sequence, telemetry, reuse, results_ptr, event,
 		               user_key, response_future, flight = shared.get()]() mutable -> Value {
+			auto erase_flight = [&]() {
+				if (reuse) {
+					auto bucket = runtime.in_flight.find(results_ptr);
+					if (bucket != runtime.in_flight.end())
+						bucket->second.erase(user_key);
+				}
+			};
 			try {
 				auto response = response_future.get();
 				double latency = double(response.response_ns - response.submit_ns) / 1000000.0;
 				if (telemetry) {
 					RecordCacheCorrection(event, response);
-					auto &total = runtime.latency_totals[operator_id];
-					++total.first;
-					total.second += latency;
-					// Keep telemetry memory bounded even for a very large Cartesian traversal.
-					if (runtime.latencies[operator_id].size() < 4096)
-						runtime.latencies[operator_id].push_back(latency);
+					if (!response.result_cache_hit) {
+						auto &total = runtime.latency_totals[operator_id];
+						++total.first;
+						total.second += latency;
+						// Keep telemetry memory bounded even for a very large Cartesian traversal.
+						if (runtime.latencies[operator_id].size() < 4096)
+							runtime.latencies[operator_id].push_back(latency);
+					}
 					event["submit_ns"] = response.submit_ns;
 					event["response_ns"] = response.response_ns;
 					event["server_start_ns"] = response.server_start_ns;
@@ -342,7 +351,7 @@ Value InferSemanticValue(ExecutionContext &context, const SemanticBindData &bind
 				auto value = ParseOutput(response.raw_text, binding);
 				if (reuse) {
 					results_ptr->emplace(user_key, SemanticResultCache::Result {value, sequence});
-					runtime.in_flight[results_ptr].erase(user_key);
+					erase_flight();
 				}
 				const bool emitted =
 				    binding.node.kind == semantic::NodeKind::SEMANTIC_PROJECTION || value.GetValue<bool>();
@@ -358,12 +367,16 @@ Value InferSemanticValue(ExecutionContext &context, const SemanticBindData &bind
 				runtime.Reoptimize(*client_context);
 				return value;
 			} catch (const SamplingBudgetExhausted &) {
+				erase_flight();
 				throw;
 			} catch (const SemanticRequestFailure &) {
+				erase_flight();
 				throw;
 			} catch (const semantic::LLMError &error) {
+				erase_flight();
 				FailSemanticRequest(binding, runtime, event, sequence, error, error.confirmed_response.get());
 			} catch (const std::exception &error) {
+				erase_flight();
 				FailSemanticRequest(binding, runtime, event, sequence, error);
 			}
 		};

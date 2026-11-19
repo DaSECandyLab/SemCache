@@ -197,11 +197,10 @@ def audit_records(records):
         errors = []
         path = ROOT / record["query_file"]
         try:
-            for file_key, hash_key in (
-                ("query_file", "sha256"),
-                ("metadata_file", "metadata_sha256"),
-                ("source", "source_sha256"),
-            ):
+            checks = [("query_file", "sha256"), ("source", "source_sha256")]
+            if record.get("metadata_file"):
+                checks.append(("metadata_file", "metadata_sha256"))
+            for file_key, hash_key in checks:
                 if inspect.digest(ROOT / record[file_key]) != record[hash_key]:
                     errors.append(file_key + " hash differs")
             expected = expected_operations(record)

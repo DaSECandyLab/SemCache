@@ -2,7 +2,6 @@
 #include "../../common/expression_bindings.hpp"
 #include "../../common/prefix_selectivity.hpp"
 #include "estimate_fields.hpp"
-#include "../evidence/depth_fusion.hpp"
 
 namespace semcache::sampling {
 std::shared_ptr<const CoreObservation> NativeSampler::Impl::refresh_core(

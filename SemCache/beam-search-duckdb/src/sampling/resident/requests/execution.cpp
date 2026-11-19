@@ -20,22 +20,8 @@ Json NativeSampler::Impl::execute(const Json &op, const SampleInputs &inputs,
   const auto source = backend;
   const auto observations_before = source->observations().size();
   Json bounded = action;
-  std::size_t reserved = 0;
-  if (semantic) {
-    const auto available = selection_remaining();
-    bounded["llm_request_limit"] = available;
-    if (state_actor) {
-      reserved = available;
-      pending_selection += reserved;
-    }
-  }
-  auto release_reservation = [&] {
-    if (!reserved)
-      return;
-    pending_selection -= reserved;
-    reserved = 0;
-    state_actor->task.notify();
-  };
+  if (semantic)
+    bounded["llm_request_limit"] = selection_remaining();
   bool accounted = false, submitted = false;
   auto account = [&] {
     if (!semantic || accounted || !submitted)
@@ -50,7 +36,7 @@ Json NativeSampler::Impl::execute(const Json &op, const SampleInputs &inputs,
   };
   auto started = std::chrono::steady_clock::now();
   try {
-    Json output = state_backend_call(
+    Json output = sql_pipeline.run(
         [&] {
           submitted = true;
           return pairs ? source->join_pairs(op, *pairs, bounded)
@@ -60,7 +46,6 @@ Json NativeSampler::Impl::execute(const Json &op, const SampleInputs &inputs,
     const auto seconds = std::chrono::duration<double>(
                              std::chrono::steady_clock::now() - started)
                              .count();
-    release_reservation();
     backend_seconds += seconds;
     account();
     if ((purpose == "selection" || purpose == "product_calibration") &&
@@ -68,21 +53,14 @@ Json NativeSampler::Impl::execute(const Json &op, const SampleInputs &inputs,
       record_selection_time(op, inputs, action, pairs,
                             source->observations().back(),
                             source->selection_progress());
-    if (!state_actor || !semantic) {
-      state_turn();
-      harvest();
-    }
+    harvest();
     return output;
   } catch (...) {
-    release_reservation();
     backend_seconds += std::chrono::duration<double>(
                            std::chrono::steady_clock::now() - started)
                            .count();
     account();
-    if (!state_actor || !semantic) {
-      state_turn();
-      harvest();
-    }
+    harvest();
     throw;
   }
 }
@@ -94,23 +72,10 @@ bool NativeSampler::Impl::resolve_groups(const Json &op,
                                          const std::function<void()> &prepare) {
   if (settings.value("selectivity_parallel_models", true) && models(op).size() > 1)
     return resolve_parallel_groups(op, inputs, observed, prepare);
-  std::set<std::string> claimed;
-  if (state_actor)
-    for (const auto &group : observed)
-      if (!ledger.find(group.key))
-        claimed.insert(group.key);
-  StateClaim claim(*this, selection_claims, {claimed.begin(), claimed.end()});
   std::vector<const Group *> selected;
   Json representatives = Json::array(), pairs = Json::array();
   std::size_t wanted = 0;
   auto available = selection_remaining();
-  // Reserved HTTP capacity is not spent capacity. Wait for actual billing
-  // and refunds rather than marking this task exhausted while another owns it.
-  while (state_actor && !available && pending_selection) {
-    const auto before = pending_selection;
-    state_actor->task.wait([&] { return pending_selection < before; });
-    available = selection_remaining();
-  }
   for (auto &group : observed)
     if (!ledger.find(group.key)) {
       ++wanted;
@@ -127,45 +92,33 @@ bool NativeSampler::Impl::resolve_groups(const Json &op,
   if (deadline_reached())
     return false;
   Json action = {{"model_id", model}, {"layout", op.at("default_layout")}};
-  auto finish = [&] {
-    claim.release();
-    state_turn();
-    if (state_actor)
-      harvest();
-  };
-  try {
-    auto output = inputs.size() == 1 ? execute(op, {&representatives}, action,
-                                               nullptr, "selection", prepare)
-                                     : execute(op, inputs, action, &pairs,
-                                               "selection", prepare);
-    std::map<std::string, const Json *> by_id;
-    for (const auto &r : output)
-      by_id.emplace(r.at("id").get<std::string>(), &r);
-    auto column = output_column(op);
-    const auto progress = backend->selection_progress();
-    const auto completed = progress.at("completed_inputs").get<std::size_t>();
-    if (completed > selected.size())
-      throw std::logic_error(
-          "Sampling backend completed more inputs than supplied");
-    for (std::size_t i = 0; i < completed; ++i) {
-      const auto *group = selected[i];
-      auto id = group->unit.size() == 1
-                    ? group->unit[0]["id"].get<std::string>()
-                    : digest(Json::array(
-                          {group->unit[0].at("id"), group->unit[1].at("id")}));
-      auto found = by_id.find(id);
-      ledger.publish(group->key, found != by_id.end(),
-                     found != by_id.end() && !column.empty()
-                         ? found->second->at("values").at(column)
-                         : Json(nullptr));
-    }
-    const bool pending = wanted > completed;
-    finish();
-    return !pending;
-  } catch (...) {
-    finish();
-    throw;
+  auto output = inputs.size() == 1 ? execute(op, {&representatives}, action,
+                                             nullptr, "selection", prepare)
+                                   : execute(op, inputs, action, &pairs,
+                                             "selection", prepare);
+  std::map<std::string, const Json *> by_id;
+  for (const auto &r : output)
+    by_id.emplace(r.at("id").get<std::string>(), &r);
+  auto column = output_column(op);
+  const auto progress = backend->selection_progress();
+  const auto completed = progress.at("completed_inputs").get<std::size_t>();
+  if (completed > selected.size())
+    throw std::logic_error(
+        "Sampling backend completed more inputs than supplied");
+  for (std::size_t i = 0; i < completed; ++i) {
+    const auto *group = selected[i];
+    auto id = group->unit.size() == 1
+                  ? group->unit[0]["id"].get<std::string>()
+                  : digest(Json::array(
+                        {group->unit[0].at("id"), group->unit[1].at("id")}));
+    auto found = by_id.find(id);
+    ledger.publish(group->key, found != by_id.end(),
+                   found != by_id.end() && !column.empty()
+                       ? found->second->at("values").at(column)
+                       : Json(nullptr));
   }
+  const bool pending = wanted > completed;
+  return !pending;
 }
 
 const Json &NativeSampler::Impl::execution_op(const StatePtr &state,
@@ -277,9 +230,7 @@ OwnedInputs NativeSampler::Impl::prepare_inputs(const Json &op,
     Json side_op = op;
     side_op["input_field_schema"] = std::move(generated);
     auto prepare_side = [&](const SampleInputs &side) {
-      const auto source = backend;
-      auto operation = [&] { return source->prepare_inputs(side_op, side); };
-      return state_actor ? state_actor->task.outside(operation) : operation();
+      return backend->prepare_inputs(side_op, side);
     };
     if (!product(rows)) {
       auto prepared = prepare_side({&rows});

@@ -9,7 +9,7 @@ from typing import Any
 
 import torch
 
-from .epoch_batches import predict_batch
+from .batches.epoch import predict_batch
 
 
 def complete_metrics(model, rows, config):

@@ -1,5 +1,5 @@
 #pragma once
-#include "../common/inputs.hpp"
+#include "../common/pipeline/inputs.hpp"
 
 namespace semcache::sampling {
 // SQL observes ordered IDs, values and field order, never sampling evidence.

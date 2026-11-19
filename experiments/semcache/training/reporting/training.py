@@ -8,7 +8,6 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from planning.prompt_layouts import BLOCK_ORDERS
-
 from training.artifacts import read
 from training.reporting.telemetry import MODELS
 
@@ -169,6 +168,17 @@ def _http_counts(path, *revision):
     return counts
 
 
+def _telemetry_path(leaf, record):
+    artifacts = record["metadata"].get("timing_artifacts", [])
+    if not artifacts:
+        return None
+    candidate = Path(artifacts[0]) / "telemetry.jsonl"
+    if candidate.exists():
+        return candidate
+    local = Path(leaf) / "sql" / Path(artifacts[0]).name / "telemetry.jsonl"
+    return local if local.exists() else candidate
+
+
 def episode_metrics(leaf):
     leaf = Path(leaf)
     paths = [leaf / name for name in (
@@ -176,8 +186,7 @@ def episode_metrics(leaf):
     )]
     revisions = tuple(file_revision(p) if p.exists() else None for p in paths)
     record = read_experience(paths[0])["records"][0]
-    artifacts = record["metadata"].get("timing_artifacts", [])
-    telemetry = Path(artifacts[0]) / "telemetry.jsonl" if artifacts else None
+    telemetry = _telemetry_path(leaf, record)
     telemetry_revision = (
         file_revision(telemetry) if telemetry is not None and telemetry.exists() else None
     )
@@ -196,12 +205,10 @@ def _episode_metrics(leaf, revisions, telemetry_revision):
     beam = timing.get("phases", {}).get("beam_search", {})
     sample_counts = sampling.get("http_requests_by_model")
     record = read_experience(leaf / "experience.json")["records"][0]
-    artifacts = record["metadata"].get("timing_artifacts", [])
+    telemetry = _telemetry_path(leaf, record)
     execution_counts = None
-    if artifacts:
-        telemetry = Path(artifacts[0]) / "telemetry.jsonl"
-        if telemetry.exists():
-            execution_counts = _http_counts(str(telemetry.resolve()), *file_revision(telemetry))
+    if telemetry is not None and telemetry.exists():
+        execution_counts = _http_counts(str(telemetry.resolve()), *file_revision(telemetry))
     return {
         "beam_seconds": beam.get("wall_seconds"),
         "minimum_accuracy": selected.get(

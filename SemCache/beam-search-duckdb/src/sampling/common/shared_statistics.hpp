@@ -1,5 +1,5 @@
 #pragma once
-#include "inputs.hpp"
+#include "pipeline/inputs.hpp"
 
 namespace semcache::sampling {
 // Published evidence and sibling states share a block until a writer changes

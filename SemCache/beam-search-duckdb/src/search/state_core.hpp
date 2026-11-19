@@ -106,9 +106,14 @@ public:
   std::string state_key(const StatePtr &state) const;
   // Coarse quota groups only; never used to merge executable states.
   LogicalStructure logical_structure(const StatePtr &state) const;
+  std::string logical_structure_key(const StatePtr &state) const;
+  std::string logical_structure_key(
+      const StatePtr &state,
+      std::unordered_map<std::uint64_t, std::string> &shape_memo) const;
   bool relational_inner_join(Id operator_id) const;
   bool semantic_filter(Id operator_id) const;
   const std::string &operator_kind(Id operator_id) const;
+  const std::optional<std::string> &action_model(const Action &action) const;
 
 private:
   std::shared_ptr<ProblemData> data_;

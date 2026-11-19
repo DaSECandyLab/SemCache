@@ -42,14 +42,15 @@ duckdb-native:
 	cmake --build "$(PLANNING_DUCKDB_BUILD)" --target shell src/libduckdb.so semantic_loadable_extension beam_search_loadable_extension tpch_loadable_extension semcache_statistics_build --parallel $(BUILD_JOBS)
 
 planning-native: duckdb-native
-	cmake -S optimizer/bindings -B "$(PYTHON_BUILD)" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+	cmake -S optimizer/bindings -B "$(PYTHON_BUILD)" -G Ninja \
+	  -DCMAKE_BUILD_TYPE=$(if $(filter debug,$(PLANNING_BUILD_MODE)),Debug,Release) \
 	  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DPython_EXECUTABLE="$(PLANNING_PYTHON)" \
 	  -DSEM_DUCKDB_BUILD="$(PLANNING_DUCKDB_BUILD)"
 	cmake --build "$(PYTHON_BUILD)" --parallel $(BUILD_JOBS)
 
 NATIVE_SOURCE_DIRS := beam-search-duckdb/src statistics optimizer/bindings
-PYTHON_SOURCE_DIRS := train.py optimizer experiments ../experiments $(wildcard ../benchmarks/scripts tools)
-CMAKE_SOURCE_FILES := $(shell rg --files --no-ignore cmake optimizer/bindings beam-search-duckdb semantic-duckdb statistics -g '*.cmake' -g CMakeLists.txt)
+PYTHON_SOURCE_DIRS := optimizer tests $(wildcard ../experiments ../benchmarks/scripts tools)
+CMAKE_SOURCE_FILES := $(shell find cmake optimizer/bindings beam-search-duckdb semantic-duckdb statistics -type f \( -name '*.cmake' -o -name 'CMakeLists.txt' \) | sort)
 .PHONY: format-check format-fix native-format-check native-format-fix \
         optimizer-format-check optimizer-format-fix optimizer-typecheck \
         cmake-format-check cmake-format-fix
@@ -59,9 +60,9 @@ format-fix: native-format-fix optimizer-format-fix cmake-format-fix
 	$(TOOLS_PYTHON) third_party/duckdb/scripts/format.py --all --fix --noconfirm --directories semantic-duckdb/src
 
 native-format-check:
-	rg --files $(NATIVE_SOURCE_DIRS) -g '*.cpp' -g '*.hpp' -g '*.h' | xargs -r "$(ROOT).venv-tools/bin/clang-format" --dry-run --Werror
+	find $(NATIVE_SOURCE_DIRS) -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) | sort | xargs -r "$(ROOT).venv-tools/bin/clang-format" --dry-run --Werror
 native-format-fix:
-	rg --files $(NATIVE_SOURCE_DIRS) -g '*.cpp' -g '*.hpp' -g '*.h' | while IFS= read -r source; do \
+	find $(NATIVE_SOURCE_DIRS) -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) | sort | while IFS= read -r source; do \
 	  "$(ROOT).venv-tools/bin/clang-format" --dry-run --Werror "$$source" >/dev/null 2>&1 || "$(ROOT).venv-tools/bin/clang-format" -i "$$source" || exit; \
 	done
 optimizer-format-check:

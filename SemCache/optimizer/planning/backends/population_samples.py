@@ -40,14 +40,17 @@ def prepare_population_samples(problem):
         ]
         if not op.get("sampling_row_local") or not sql or len(owners) != 1:
             continue
-        source_sql = _TRANSPORT_ID.sub(
-            "NULL::VARCHAR __sample_id", owners[0]["source_sql"]
+        source_sql = _estimation_filter_sql(
+            _TRANSPORT_ID.sub("NULL::VARCHAR __sample_id", owners[0]["source_sql"])
         )
+        simplified_sql = _estimation_filter_sql(
+            sql.replace("$INPUT", "__pe_input_placeholder")
+        ).replace("__pe_input_placeholder", "$INPUT")
         op["population_sample"] = {
-            "kind": "filter", "inputs": [source_sql], "sql": sql,
+            "kind": "filter", "inputs": [source_sql], "sql": simplified_sql,
             "conditioned_filters": [],
         }
-        filters.append((op, required, sql))
+        filters.append((op, required, simplified_sql))
 
     def supported(nid, visited):
         if nid in visited:
@@ -100,10 +103,12 @@ def prepare_population_samples(problem):
             # Average local rates only after giving EXPLAIN exactly the same
             # base inputs and ready relational filters as the random probe.
             op["population_input_sql"] = list(spec["inputs"])
-            op["population_estimate_sql"] = population_estimate_sql(spec)
+            op["population_estimate_sql"] = population_estimate_sql(
+                spec, _inputs_simplified=True
+            )
 
 
-def population_estimate_sql(spec):
+def population_estimate_sql(spec, *, _inputs_simplified=False):
     """EXPLAIN counterpart of the probe, using full inputs rather than a sample."""
     inputs = spec["inputs"]
     ctes = [f"__pe_left AS NOT MATERIALIZED ({inputs[0]})"]
@@ -115,6 +120,8 @@ def population_estimate_sql(spec):
         output = template.replace("$INPUT", "__pe_left")
     if _SEMANTIC_CALL.search(output):
         raise ValueError("Relational estimate must not invoke a semantic function")
+    if _inputs_simplified:
+        return "WITH " + ",".join(ctes) + " " + _estimation_filter_sql(output)
     return _estimation_filter_sql("WITH " + ",".join(ctes) + " " + output)
 
 

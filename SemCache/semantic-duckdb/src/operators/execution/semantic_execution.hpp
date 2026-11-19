@@ -66,7 +66,6 @@ struct PendingSemanticRequest {
 struct SemanticOperatorState : OperatorState {
 	ExpressionExecutor executor;
 	DataChunk arguments;
-	SelectionVector selection;
 
 	SemanticOperatorState(ExecutionContext &context, const vector<unique_ptr<Expression>> &expressions);
 };

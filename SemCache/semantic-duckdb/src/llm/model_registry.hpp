@@ -26,6 +26,9 @@ struct ModelEndpoint {
 	int max_tokens = 0;
 	// Zero inherits the client default; external providers can allow longer connections.
 	int connect_timeout_ms = 0;
+	// External endpoints (e.g., remote teachers) do not share the local
+	// deployment's global HTTP concurrency pool.
+	bool external = false;
 };
 
 class ModelRegistry {

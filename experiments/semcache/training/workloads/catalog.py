@@ -7,12 +7,11 @@ from pathlib import Path
 
 import sqlglot
 from sqlglot import exp
-
 from training.artifacts import save
-from training.query_manifest import load_manifest, query_shape, sql_sha256
-from training.sql_fingerprint import structural_fingerprint
 from training.workloads.checks import audit_workloads, validate_output_contract
 from training.workloads.provenance import load_template_rewrites
+from training.workloads.query_manifest import load_manifest, query_shape, sql_sha256
+from training.workloads.sql_fingerprint import structural_fingerprint
 
 PROTOCOL = "fixed-sql-definitions-v1"
 

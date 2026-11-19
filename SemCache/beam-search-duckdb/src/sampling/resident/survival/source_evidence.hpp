@@ -1,6 +1,6 @@
 #pragma once
-#include "../../common/inputs.hpp"
-#include "../populations.hpp"
+#include "../../common/pipeline/inputs.hpp"
+#include "../support/populations.hpp"
 
 namespace semcache::sampling::resident_detail {
 // Source inclusion does not depend on the field. Gather it once per boundary;

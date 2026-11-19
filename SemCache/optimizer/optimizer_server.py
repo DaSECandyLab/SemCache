@@ -6,6 +6,7 @@ import json
 import socketserver
 import sqlite3
 import struct
+import threading
 from pathlib import Path
 from typing import Any, cast
 
@@ -50,11 +51,16 @@ def write_frame(connection, value):
     connection.sendall(struct.pack("!I", len(body)) + body)
 
 
-class OptimizerServer(socketserver.UnixStreamServer):
+class OptimizerServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    daemon_threads = True
+    block_on_close = False
+    request_queue_size = 64
+
     def __init__(self, path, policy, log_path=None, print_plans=False):
         self.policy: Any = policy
         self.print_plans = print_plans
         self.log_path = Path(log_path) if log_path else None
+        self._log_lock = threading.Lock()
         super().__init__(str(path), OptimizerHandler)
 
     def server_close(self):
@@ -67,24 +73,31 @@ class OptimizerServer(socketserver.UnixStreamServer):
 
     def record(self, query, response):
         event = {"query_ir": query, "plan_spec": response}
-        if self.print_plans:
-            print(json.dumps(response, ensure_ascii=False, indent=2), flush=True)
-        if self.log_path:
-            with self.log_path.open("a", encoding="utf-8") as output:
-                output.write(
-                    json.dumps(event, ensure_ascii=False, allow_nan=False) + "\n"
-                )
+        with self._log_lock:
+            if self.print_plans:
+                print(json.dumps(response, ensure_ascii=False, indent=2), flush=True)
+            if self.log_path:
+                with self.log_path.open("a", encoding="utf-8") as output:
+                    output.write(
+                        json.dumps(event, ensure_ascii=False, allow_nan=False) + "\n"
+                    )
 
 
 class OptimizerHandler(socketserver.BaseRequestHandler):
     def handle(self):
         # Always return a framed error when possible. C++ treats it as a planning
         # failure and therefore sends no model requests.
-        self.request.settimeout(15)
+        self.request.settimeout(120)
         try:
             query = read_frame(self.request)
             server = cast(OptimizerServer, self.server)
-            response = server.policy.optimize(query)
+            kind = query.get("kind") if isinstance(query, dict) else None
+            if kind == "ResetHistory" and hasattr(server.policy, "reset_history"):
+                response = server.policy.reset_history(query)
+            elif kind == "IngestHistory" and hasattr(server.policy, "ingest_history"):
+                response = server.policy.ingest_history(query)
+            else:
+                response = server.policy.optimize(query)
             server.record(query, response)
             write_frame(self.request, response)
         except (
@@ -136,7 +149,7 @@ def main():
     parser.add_argument(
         "--plan-generation",
         choices=("heuristic_requests", "heuristic_value"),
-        default=settings["inference"].get("plan_generation", "heuristic_requests"),
+        default=None,
     )
     parser.add_argument(
         "--sampling-database",
@@ -158,7 +171,7 @@ def main():
         type=Path,
     )
     parser.add_argument(
-        "--sampling-config", type=Path, help="SamplingCoordinator budget/config JSON"
+        "--sampling-config", type=Path, help="Native sampler budget/config JSON"
     )
     parser.add_argument(
         "--teacher-model",
@@ -190,7 +203,13 @@ def main():
         preference=settings["inference"]["preference"],
     )
     args = parser.parse_args()
-    from planning.execution.adaptation_monitor import AdaptationSettings
+    if args.plan_generation is None:
+        args.plan_generation = (
+            settings["inference"].get("plan_generation", "heuristic_value")
+            if args.checkpoint is not None
+            else "heuristic_requests"
+        )
+    from planning.execution.adaptation.monitor import AdaptationSettings
 
     adaptation = (
         AdaptationSettings(**json.loads(args.runtime_adaptation_config.read_text()))

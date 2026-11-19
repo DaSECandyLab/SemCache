@@ -26,6 +26,8 @@ public:
 		return chunk_mode;
 	}
 	void BeginChunk(int64_t id, uint64_t first_input, uint64_t capacity);
+	void ExtendChunk(int64_t id, uint64_t additional_capacity);
+	uint64_t ActiveEnd(int64_t id) const;
 	void EndChunk(int64_t id);
 	bool AtBoundary(int64_t id) const;
 	void Observe(int64_t id, bool emitted, double latency_ms, bool requested = true);

@@ -7,7 +7,6 @@
 
 | 目录 | 内容 |
 |---|---|
-| `config/` | 实验、训练、评测和 Teacher 配置 |
 | `semcache/` | SemCache 查询、采集、训练、参考答案和监控 |
 | `system_comparison/` | PLOP、Sema、Nirvana、LOTUS、Abacus、MOAR 的对比调度 |
 | `validation/` | 查询结构、绑定和运行时契约检查 |
@@ -16,9 +15,8 @@
 
 ## 配置
 
-实验配置位于 `config/system/`，按 `config/system/config.json` 的 `include`
-组合。Teacher 模板位于 `config/teacher/teacher.example.json`；密钥只从环境变量读取。
-核心搜索、采样和 value model 配置仍由 `SemCache/config/` 管理，两套配置不会自动合并。
+系统、训练、评测和监控配置均位于 `SemCache/config/system/`，按 `SemCache/config/system/config.json` 的 `include`
+组合；Teacher 模板位于 `SemCache/config/teacher/teacher.example.json`，密钥只从环境变量读取。
 
 ## SemCache 训练
 

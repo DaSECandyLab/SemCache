@@ -1,5 +1,5 @@
 #pragma once
-#include "inputs.hpp"
+#include "pipeline/inputs.hpp"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>

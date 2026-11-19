@@ -1,7 +1,6 @@
-"""Sample calibration, frozen feedback states and serving-cache reset."""
+"""Frozen feedback states and serving-cache reset."""
 
 import copy
-import math
 import urllib.request
 
 from planning.learning.training.trajectory import trajectory
@@ -11,100 +10,6 @@ from planning.state import (
     copy_profile,
     copy_statistics,
 )
-
-
-class SampleCalibration:
-    """Online moments for new sample observations, preserving supplied priors."""
-
-    def __init__(self, profile, *, resume=True):
-        self.profile = profile
-        self.moments = {}
-        self.resume = resume
-
-    def _add(self, bank, owner, key, values, metric, basis):
-        if not values:
-            return
-        entries = self.profile.setdefault(bank, {})
-        if owner is not None:
-            entries = entries.setdefault(owner, {})
-        old = entries.get(key)
-        counted = bank == "request_profiles"
-        if old is not None and old.get("basis") != basis and not counted:
-            return
-        identity = bank, owner, key
-        if identity not in self.moments:
-            seed = (0, 0.0, 0.0)
-            if counted and self.resume and old is not None:
-                seed = old["samples"], old[metric], old["latency_m2"]
-                if (
-                    isinstance(seed[0], bool)
-                    or not isinstance(seed[0], int)
-                    or seed[0] < 1
-                    or any(
-                        isinstance(x, bool) or not math.isfinite(x) or x < 0
-                        for x in seed[1:]
-                    )
-                ):
-                    raise ValueError("Invalid counted latency prior")
-            self.moments[identity] = seed
-        n, mean, m2 = self.moments[identity]
-        for value in values:
-            if not math.isfinite(value) or value < 0:
-                raise ValueError("Invalid sampled latency")
-            n += 1
-            delta = value - mean
-            mean += delta / n
-            m2 += delta * (value - mean)
-        self.moments[(bank, owner, key)] = n, mean, m2
-        result = {metric: mean, "basis": basis, "samples": n, "latency_m2": m2}
-        if counted:
-            result["basis"] = "counted initial and online atomic request latency"
-        if metric == "seconds_per_request":
-            result["latency_cv"] = (
-                math.sqrt(max(0.0, m2) / (n - 1)) / mean if n > 1 and mean > 0 else None
-            )
-        entries[key] = result
-
-    def observe(self, observation):
-        model = observation["model_id"]
-        if model:
-            values = [
-                e["latency_ms"] / 1000
-                for e in observation["events"]
-                if e.get("event") == "semantic_row"
-                and e.get("parse_status") == "validated"
-                and e.get("sampling_batch_size", 1) == 1
-                and not (e.get("submit_ns") == 0 and e.get("response_ns") == 0)
-                and e.get("latency_ms") is not None
-            ]
-            self._add(
-                "request_profiles",
-                model,
-                observation["kind"],
-                values,
-                "seconds_per_request",
-                "sampled warm request latency",
-            )
-            if observation.get("task_key"):
-                self._add(
-                    "task_request_profiles",
-                    model,
-                    observation["task_key"],
-                    values,
-                    "seconds_per_request",
-                    "sampled task request latency",
-                )
-        else:
-            count = math.prod(observation["inputs"])
-            if count:
-                self._add(
-                    "relational_profiles",
-                    None,
-                    str(observation["operator_id"]),
-                    [observation["seconds"] / count],
-                    "seconds_per_input",
-                    "sampled materialized SQL stage",
-                )
 
 
 def freeze_problem(problem, candidates):

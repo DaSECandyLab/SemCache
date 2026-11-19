@@ -32,7 +32,7 @@ ModelRegistry ModelRegistry::Parse(const std::string &text) {
 				if (field.key() != "base_url" && field.key() != "model" && field.key() != "structured_output" &&
 				    field.key() != "enable_thinking" && field.key() != "max_tokens" && field.key() != "api_key_env" &&
 				    field.key() != "thinking" && field.key() != "reasoning_effort" &&
-				    field.key() != "connect_timeout_ms" && field.key() != "headers")
+				    field.key() != "connect_timeout_ms" && field.key() != "headers" && field.key() != "external")
 					throw ValidationError("unknown registry entry field: " + field.key());
 			}
 
@@ -97,6 +97,13 @@ ModelRegistry ModelRegistry::Parse(const std::string &text) {
 					throw ValidationError("connect_timeout_ms must be an integer in [1, 600000]");
 				endpoint.connect_timeout_ms = limit.get<int>();
 			}
+			bool has_external = false;
+			if (value.contains("external")) {
+				if (!value.at("external").is_boolean())
+					throw ValidationError("external must be boolean");
+				has_external = true;
+				endpoint.external = value.at("external").get<bool>();
+			}
 			std::smatch match;
 			if (endpoint.model.empty() || !std::regex_match(endpoint.base_url, match, url_pattern))
 				throw ValidationError(
@@ -121,6 +128,14 @@ ModelRegistry ModelRegistry::Parse(const std::string &text) {
 					throw ValidationError("invalid numeric IPv4 address");
 				if (!numeric && (part.size() > 63 || !std::regex_match(part, dns_label)))
 					throw ValidationError("invalid HTTPS hostname");
+			}
+
+			if (!has_external) {
+				std::string lower_host = endpoint.host;
+				std::transform(lower_host.begin(), lower_host.end(), lower_host.begin(),
+				               [](unsigned char c) { return std::tolower(c); });
+				const bool loopback = lower_host == "localhost" || (numeric && endpoint.host.rfind("127.", 0) == 0);
+				endpoint.external = !loopback;
 			}
 
 			endpoint.path_prefix = match[5].str();

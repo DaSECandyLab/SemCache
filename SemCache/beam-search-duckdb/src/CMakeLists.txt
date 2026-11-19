@@ -2,16 +2,26 @@
 set(BEAM_SOURCES
     extension/beam_extension.cpp
     extension/profile_search.cpp
-    search/state_core.cpp
+    search/state_problem.cpp
+    search/state_inputs.cpp
+    search/state_actions.cpp
     search/search_core.cpp
-    search/grouped_pruning.cpp
-    search/join_filter_cost.cpp
-    search/resident_driver.cpp
-    search/runtime_driver.cpp
-    sampling/common/parallel.cpp
-    sampling/sql/backend.cpp
-    sampling/statistics/statistics.cpp
+    search/pruning/grouped_pruning.cpp
+    search/pruning/join_filter_cost.cpp
+    search/drivers/resident_driver.cpp
+    search/drivers/runtime_driver.cpp
+    sampling/common/pipeline/parallel.cpp
+    sampling/sql/backend/backend_connection.cpp
+    sampling/sql/backend/backend_tables.cpp
+    sampling/sql/backend/backend_run.cpp
+    sampling/sql/backend/backend_output.cpp
+    sampling/sql/backend/backend_api.cpp
+    sampling/statistics/impl/summaries_core.cpp
+    sampling/statistics/impl/reuse_cache.cpp
+    sampling/statistics/impl/propagation.cpp
     sampling/statistics/relational_estimate.cpp
+    sampling/profile/environment_cache.cpp
+    sampling/profile/environment_survival.cpp
     sampling/profile/environment.cpp
     sampling/resident/sampler.cpp
     sampling/resident/resample.cpp
@@ -31,17 +41,20 @@ set(BEAM_SOURCES
     sampling/resident/evidence/shared_selectivity.cpp
     sampling/resident/evidence/depth_selectivity.cpp
     sampling/resident/evidence/expression_depths.cpp
-    sampling/resident/evidence/relational_fallback.cpp
     sampling/resident/join/join_candidates.cpp
     sampling/resident/join/join_selection.cpp
-    sampling/resident/join/join_probe_evidence.cpp
+    sampling/resident/join/probe/probe_prepare.cpp
+    sampling/resident/join/probe/probe_snapshot.cpp
     sampling/resident/join/join_incremental.cpp
     sampling/resident/cache/history.cpp
+    sampling/resident/cache/cache_inputs.cpp
+    sampling/resident/cache/cache_edges.cpp
     sampling/resident/cache/cache_lineage.cpp
     sampling/resident/survival/survival_fallback.cpp
     sampling/resident/survival/survival_demand.cpp
-    sampling/resident/observations.cpp
-    sampling/resident/scheduling/state_services.cpp
+    sampling/resident/observations/observations_inputs.cpp
+    sampling/resident/observations/observations_replay.cpp
+    sampling/resident/observations/observations_semantic.cpp
     sampling/resident/requests/quality_pipeline.cpp
     sampling/resident/requests/quality.cpp
     sampling/resident/requests/quality_inputs.cpp

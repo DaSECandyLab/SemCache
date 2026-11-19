@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../common/inputs.hpp"
+#include "../common/pipeline/inputs.hpp"
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>

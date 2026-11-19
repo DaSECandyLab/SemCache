@@ -5,9 +5,62 @@ import json
 import os
 import subprocess
 import sys
+import threading
+from collections import OrderedDict
 from pathlib import Path
 
 from planning.settings.configuration import ROOT, load_config, runtime_path
+
+_PROCESS_OFFLINE_LOCK = threading.Lock()
+_PROCESS_OFFLINE_CACHE: OrderedDict[
+    tuple[str, int, int], tuple[dict, bool]
+] = OrderedDict()
+
+
+def select_joint_orders(order_counts, budget=8):
+    """Select up to B_joint multi-column orders via length-stratified round robin."""
+    if type(budget) is not int or budget < 0:
+        raise ValueError("Joint sketch budget must be a nonnegative integer")
+    if budget == 0:
+        return []
+    buckets = {}
+    items = (
+        order_counts.items()
+        if isinstance(order_counts, dict)
+        else order_counts
+    )
+    for raw_order, count in items:
+        order = (
+            tuple(raw_order)
+            if isinstance(raw_order, (list, tuple))
+            else ()
+        )
+        if len(order) < 2 or len(set(order)) != len(order) or count <= 0:
+            continue
+        prev = buckets.setdefault(len(order), {}).get(order, 0)
+        if count > prev:
+            buckets[len(order)][order] = count
+    queues = {
+        length: sorted(entries, key=lambda o: (-entries[o], o))
+        for length, entries in buckets.items()
+    }
+    selected = []
+    index = 0
+    while len(selected) < budget and queues:
+        progressed = False
+        for length in sorted(queues):
+            queue = queues[length]
+            if index < len(queue):
+                selected.append(list(queue[index]))
+                progressed = True
+                if len(selected) == budget:
+                    break
+            else:
+                queues.pop(length, None)
+        if not progressed:
+            break
+        index += 1
+    return selected
 
 
 def database_snapshot(database):
@@ -49,21 +102,50 @@ class OfflineStatisticsStore:
         path = self.path(schema, table)
         if not path.exists():
             return None
-        key = (str(path), path.stat().st_mtime_ns, path.stat().st_size)
+        st = path.stat()
+        key = (str(path), st.st_mtime_ns, st.st_size)
         if key not in self.cache:
-            value = json.loads(path.read_text())
-            if value.get("version") != 2:
-                raise ValueError("Unsupported offline prefix-statistics version")
+            value = self._load_cached(key, path)
             self.cache = {k: v for k, v in self.cache.items() if k[0] != str(path)}
             self.cache[key] = value
         value = self.cache[key]
         return value if value["snapshot"] == database_snapshot(self.database) else None
 
-    def for_query(self, query, *, required=False):
-        result = {}
+    @staticmethod
+    def _load_cached(key, path):
+        with _PROCESS_OFFLINE_LOCK:
+            cached = _PROCESS_OFFLINE_CACHE.get(key)
+            if cached is not None:
+                _PROCESS_OFFLINE_CACHE.move_to_end(key)
+                return cached[0]
+        value = json.loads(path.read_text())
+        if value.get("version") != 2:
+            raise ValueError("Unsupported offline prefix-statistics version")
+        with _PROCESS_OFFLINE_LOCK:
+            _PROCESS_OFFLINE_CACHE[key] = (value, False)
+            _PROCESS_OFFLINE_CACHE.move_to_end(key)
+            while len(_PROCESS_OFFLINE_CACHE) > 64:
+                _PROCESS_OFFLINE_CACHE.popitem(last=False)
+        return value
+
+    def _validated_relations(self, query, *, required=False):
+        from .cache import require_hash_entries
+
+        entries = []
         for relation in query["relations"]:
             if not relation.get("table") or not relation.get("schema"):
                 continue
+            path = self.path(relation["schema"], relation["table"])
+            if not path.exists():
+                if required:
+                    raise ValueError(
+                        "Missing or stale offline prefix/cooccurrence statistics for "
+                        f"{relation['schema']}.{relation['table']}; "
+                        "run semcache_statistics_build before value-guided search"
+                    )
+                continue
+            st = path.stat()
+            cache_key = (str(path), st.st_mtime_ns, st.st_size)
             table = self.load(relation["schema"], relation["table"])
             if table is None:
                 if required:
@@ -77,9 +159,13 @@ class OfflineStatisticsStore:
                 if required:
                     raise ValueError("Offline prefix-statistics catalog mismatch")
                 continue
-            from .cache import require_hash_entries
-
-            require_hash_entries(table["cooccurrence"])
+            with _PROCESS_OFFLINE_LOCK:
+                validated = _PROCESS_OFFLINE_CACHE.get(cache_key, (None, False))[1]
+            if not validated:
+                require_hash_entries(table["cooccurrence"])
+                with _PROCESS_OFFLINE_LOCK:
+                    if cache_key in _PROCESS_OFFLINE_CACHE:
+                        _PROCESS_OFFLINE_CACHE[cache_key] = (table, True)
             missing = [
                 c["name"] for c in relation["columns"]
                 if c["name"] not in table["summaries"]
@@ -93,18 +179,67 @@ class OfflineStatisticsStore:
                 for c in relation["columns"]
                 if c["name"] in table["summaries"]
             }
+            name_to_key = {name: key for key, name in columns.items()}
+            joint_columns = {}
+            for raw_cols in table.get("joint_summaries") or {}:
+                cols = json.loads(raw_cols)
+                if (
+                    isinstance(cols, list)
+                    and len(cols) >= 2
+                    and all(c in name_to_key for c in cols)
+                ):
+                    joint_columns[raw_cols] = json.dumps(
+                        [name_to_key[c] for c in cols], separators=(",", ":")
+                    )
+            entries.append((relation, path, st, table, columns, joint_columns))
+        return entries
+
+    def for_query(self, query, *, required=False):
+        result = {}
+        for relation, _, _, table, columns, joint_columns in self._validated_relations(
+            query, required=required
+        ):
+            table_joints = table.get("joint_summaries") or {}
             result[str(relation["node_id"])] = {
                 "columns": columns,
                 "summaries": {
                     key: table["summaries"][name] for key, name in columns.items()
                 },
+                "joint_summaries": {
+                    joint_key: table_joints[raw_cols]
+                    for raw_cols, joint_key in joint_columns.items()
+                },
                 "cooccurrence": table["cooccurrence"],
             }
         return result
 
+    def for_query_files(self, query, *, required=False):
+        files = {}
+        row_counts = {}
+        for relation, path, st, table, columns, joint_columns in self._validated_relations(
+            query, required=required
+        ):
+            key = str(relation["node_id"])
+            files[key] = {
+                "path": str(path),
+                "mtime_ns": st.st_mtime_ns,
+                "size": st.st_size,
+                "columns": columns,
+                "joint_columns": joint_columns,
+            }
+            row_counts[key] = table["cooccurrence"]["row_count"]
+        return files, row_counts
+
 
 def build_database(
-    database, directory, build, *, tables=None, config=None, parallelism=None
+    database,
+    directory,
+    build,
+    *,
+    tables=None,
+    config=None,
+    parallelism=None,
+    joint_orders=None,
 ):
     """Launch the native builder; Python neither scans nor constructs statistics."""
     if parallelism is None:
@@ -120,6 +255,8 @@ def build_database(
     ]
     if config is not None:
         command += ["--adaptive-config", json.dumps(config, allow_nan=False)]
+    if joint_orders is not None:
+        command += ["--joint-orders", str(Path(joint_orders).resolve())]
     if tables:
         command += ["--tables", *tables]
     result = subprocess.run(command, check=True, capture_output=True, text=True)

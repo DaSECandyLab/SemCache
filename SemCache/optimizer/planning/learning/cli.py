@@ -32,10 +32,23 @@ def run(args, parser):
             "CUDA value-model training requested, but CUDA is unavailable"
         )
     torch.manual_seed(args.seed)
-    if args.initialize_remaining_attention and (args.checkpoint or args.feature_groups is not None):
-        parser.error("Attention initialization cannot be combined with --checkpoint or --feature-groups")
+    if args.initialize_remaining_attention and (
+        args.checkpoint or args.feature_groups is not None
+    ):
+        parser.error(
+            "Attention initialization cannot be combined with --checkpoint or --feature-groups"
+        )
     if args.checkpoint and args.feature_groups is not None:
         parser.error("A loaded checkpoint already fixes its feature groups")
+    use_cache_features = getattr(
+        args,
+        "use_cache_features",
+        settings.get("value_model", {}).get("use_cache_features", True),
+    )
+    if not use_cache_features and (args.checkpoint or args.initialize_remaining_attention):
+        parser.error(
+            "--no-cache-features cannot be combined with --checkpoint or --initialize-remaining-attention"
+        )
     if args.checkpoint:
         model = PlanValueModel.load(args.checkpoint)
     elif args.initialize_remaining_attention:
@@ -48,6 +61,7 @@ def run(args, parser):
             heads=args.heads,
             layers=args.layers,
             time_scale=args.time_scale,
+            use_cache_features=use_cache_features,
             **(
                 {"feature_groups": args.feature_groups}
                 if args.feature_groups is not None

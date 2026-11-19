@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pandas as pd
 
 from experiments.system_comparison.reporting.results import normalize
@@ -43,6 +41,7 @@ def install_relational_join():
     native semantic equijoins retain their upstream implementation.
     """
     from docetl.operations.equijoin import EquijoinOperation
+
     from experiments.system_comparison.execution.operators import SQLJoin
 
     if getattr(EquijoinOperation.execute, "_comparison_sql", False):
@@ -104,6 +103,7 @@ def load_config(path):
 def install_nullable_numbers():
     """Represent SQL nullable numbers faithfully in native structured output."""
     import sys
+
     from docetl.operations.utils import validation
 
     original_convert = validation.convert_val

@@ -4,10 +4,10 @@ import torch
 
 from planning.learning.features.schema import HISTORY_NUMERIC, NODE_NUMERIC
 
-from . import _search_core
-
 
 def pack(features, reference):
+    from . import _search_core
+
     buffers = _search_core.FeatureBuffers(features, NODE_NUMERIC, HISTORY_NUMERIC)
     count = buffers.offsets[-1]
     if count == 0:

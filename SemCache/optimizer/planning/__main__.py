@@ -153,6 +153,12 @@ def main():
     train_parser.add_argument("--heads", type=int)
     train_parser.add_argument("--layers", type=int)
     train_parser.add_argument(
+        "--no-cache-features",
+        dest="use_cache_features",
+        action="store_false",
+        help="Disable cache reuse features (matches cache-group ablation with explicit flag)",
+    )
+    train_parser.add_argument(
         "--feature-groups",
         nargs="*",
         choices=(
@@ -271,6 +277,7 @@ def main():
         fixed_model_id=config.fixed_model_id or "gemma4-e2b",
     )
     problem = SearchProblem(query, profile)
+    config = config.for_problem(problem)
     ranker = (
         load_inference_model(args.checkpoint, settings)
         if not config.request_guided

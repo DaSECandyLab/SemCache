@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <set>
 #include <stdexcept>
@@ -174,6 +175,101 @@ struct TableSource {
     }
   }
 };
+void AppendEscaped(std::string &out, std::string_view value) {
+  for (char c : value) {
+    if (c == '<')
+      out += "\\u003c";
+    else if (c == '>')
+      out += "\\u003e";
+    else
+      out += c;
+  }
+}
+struct JointSource {
+  const TableSource &base;
+  std::vector<std::vector<size_t>> orders;
+  std::vector<std::string> scratch;
+  std::string error;
+  static int Fetch(size_t f, const size_t *ids, size_t n, const char **strings,
+                   size_t *sizes, void *ctx) noexcept {
+    auto &s = *static_cast<JointSource *>(ctx);
+    try {
+      const auto &order = s.orders.at(f);
+      s.scratch.resize(n);
+      for (size_t i = 0; i < n; ++i) {
+        auto &out = s.scratch[i];
+        out.clear();
+        AppendEscaped(out, s.base.Value(order[0], ids[i]));
+        for (size_t k = 1; k < order.size(); ++k) {
+          out += "\n{" + std::to_string(k) + "}: ";
+          AppendEscaped(out, s.base.Value(order[k], ids[i]));
+        }
+        strings[i] = out.data();
+        sizes[i] = out.size();
+      }
+      return 0;
+    } catch (const std::exception &e) {
+      s.error = e.what();
+      return 1;
+    }
+  }
+};
+std::vector<std::vector<std::string>>
+SelectJointOrders(const Json &spec, size_t default_budget,
+                  const std::vector<std::string> &available) {
+  std::set<std::string> known(available.begin(), available.end());
+  size_t budget = default_budget;
+  if (spec.is_object() && spec.contains("b_joint"))
+    budget = spec.at("b_joint").get<size_t>();
+  if (!budget)
+    return {};
+  const Json &raw = spec.is_object() ? spec.value("orders", Json::array()) : spec;
+  if (!raw.is_array())
+    throw std::invalid_argument("Joint order specification must be an array");
+  struct Ranked {
+    double count;
+    std::vector<std::string> columns;
+  };
+  std::map<size_t, std::vector<Ranked>> buckets;
+  for (size_t idx = 0; idx < raw.size(); ++idx) {
+    const auto &item = raw[idx];
+    const Json &cols = item.is_object() ? item.at("columns") : item;
+    double weight = item.is_object() ? item.value("count", 1.0)
+                                     : double(raw.size() - idx);
+    if (!cols.is_array() || cols.size() < 2 || weight <= 0.)
+      continue;
+    std::vector<std::string> order = cols.get<std::vector<std::string>>();
+    std::set<std::string> uniq(order.begin(), order.end());
+    if (uniq.size() != order.size())
+      continue;
+    bool ok = true;
+    for (const auto &c : order)
+      ok &= known.count(c) != 0;
+    if (ok)
+      buckets[order.size()].push_back({weight, std::move(order)});
+  }
+  for (auto &[_, list] : buckets)
+    std::sort(list.begin(), list.end(), [](const Ranked &a, const Ranked &b) {
+      if (a.count != b.count)
+        return a.count > b.count;
+      return a.columns < b.columns;
+    });
+  std::vector<std::vector<std::string>> selected;
+  for (size_t pos = 0; selected.size() < budget; ++pos) {
+    bool progressed = false;
+    for (auto &[_, list] : buckets) {
+      if (pos >= list.size())
+        continue;
+      selected.push_back(list[pos].columns);
+      progressed = true;
+      if (selected.size() == budget)
+        break;
+    }
+    if (!progressed)
+      break;
+  }
+  return selected;
+}
 void AtomicWrite(const fs::path &path, const Json &value) {
   fs::create_directories(path.parent_path());
   std::string temporary = (path.parent_path() / ".prefix-XXXXXX").string();
@@ -206,7 +302,8 @@ void AtomicWrite(const fs::path &path, const Json &value) {
 std::set<std::string> BuildDatabase(const fs::path &root, fs::path database,
                                     fs::path output, const Json &settings,
                                     const Json &adaptive, int parallelism,
-                                    const std::vector<std::string> &tables) {
+                                    const std::vector<std::string> &tables,
+                                    const Json &joint_specs) {
   database = fs::canonical(database);
   output = fs::absolute(output);
   auto snapshot = Snapshot(database);
@@ -263,6 +360,47 @@ std::set<std::string> BuildDatabase(const fs::path &root, fs::path database,
     Json value = Json::parse(sem_adaptive_json(handle));
     for (auto &summary : value["summaries"])
       summary["metadata"]["serializer"] = "prompt-v4-first-field-value-v1";
+    const Json &table_joint_spec =
+        joint_specs.contains(schema + "." + table)
+            ? joint_specs.at(schema + "." + table)
+        : joint_specs.contains(table) ? joint_specs.at(table)
+                                      : Json();
+    const size_t b_joint =
+        settings.at("statistics").value("b_joint", size_t(8));
+    auto selected_joint =
+        table_joint_spec.is_null()
+            ? std::vector<std::vector<std::string>>{}
+            : SelectJointOrders(table_joint_spec, b_joint, names);
+    if (!selected_joint.empty()) {
+      JointSource joint_source{source, {}, {}, {}};
+      std::vector<std::string> joint_keys;
+      joint_source.orders.reserve(selected_joint.size());
+      joint_keys.reserve(selected_joint.size());
+      for (const auto &order : selected_joint) {
+        std::vector<size_t> cols;
+        for (const auto &c : order)
+          cols.push_back(
+              std::find(names.begin(), names.end(), c) - names.begin());
+        joint_source.orders.push_back(std::move(cols));
+        joint_keys.push_back(Json(order).dump());
+      }
+      Json joint_cfg = adaptive;
+      joint_cfg["cooccurrence_sample_rows"] = 0;
+      std::vector<size_t> joint_pop(joint_keys.size(), source.count);
+      auto jcfg = joint_cfg.dump(), jfields = Json(joint_keys).dump();
+      void *jhandle = sem_table_build(jcfg.c_str(), jfields.c_str(),
+                                      joint_pop.data(), joint_keys.size(),
+                                      JointSource::Fetch, &joint_source);
+      if (!jhandle)
+        throw std::runtime_error(std::string(sem_prefix_error()) + " " +
+                                 joint_source.error);
+      std::unique_ptr<void, decltype(&sem_adaptive_destroy)> jguard(
+          jhandle, sem_adaptive_destroy);
+      Json jvalue = Json::parse(sem_adaptive_json(jhandle));
+      for (auto &summary : jvalue["summaries"])
+        summary["metadata"]["serializer"] = "prompt-v4-first-field-value-v1";
+      value["joint_summaries"] = std::move(jvalue["summaries"]);
+    }
     if (Snapshot(database) != snapshot)
       throw std::runtime_error(
           "Source database changed during offline construction");
@@ -299,9 +437,10 @@ std::set<std::string> BuildDatabase(const fs::path &root, fs::path database,
 int main(int argc, char **argv) {
   try {
     fs::path root = SEM_ROOT_PATH;
-    fs::path config = root / "config/system/config.json", database, output;
+    fs::path config = root / "config/system/config.json", database, output,
+             joint_orders_path;
     std::vector<std::string> tables;
-    Json adaptive;
+    Json adaptive, joint_specs = Json::object();
     int parallelism = 0;
     for (int i = 1; i < argc; ++i) {
       std::string arg = argv[i];
@@ -320,16 +459,28 @@ int main(int argc, char **argv) {
         parallelism = std::stoi(next());
       else if (arg == "--adaptive-config")
         adaptive = Json::parse(next());
+      else if (arg == "--joint-orders")
+        joint_orders_path = next();
       else if (arg == "--tables") {
         while (i + 1 < argc && std::string(argv[i + 1]).rfind("--", 0) != 0)
           tables.push_back(argv[++i]);
       } else if (arg == "--help") {
         std::cout
             << "semcache_statistics_build [--config PATH] [--database PATH] "
-               "[--output DIR] [--parallelism 1..64] [--tables NAME ...]\n";
+               "[--output DIR] [--parallelism 1..64] [--joint-orders PATH] "
+               "[--tables NAME ...]\n";
         return 0;
       } else
         throw std::invalid_argument("Unknown option: " + arg);
+    }
+    if (!joint_orders_path.empty()) {
+      std::ifstream stream(joint_orders_path);
+      if (!stream)
+        throw std::runtime_error("Cannot read joint orders: " +
+                                 joint_orders_path.string());
+      joint_specs = Json::parse(stream);
+      if (!joint_specs.is_object())
+        throw std::invalid_argument("Joint orders JSON must be an object");
     }
     Json settings = semcache::ReadConfiguration(config);
     if (output.empty())
@@ -355,7 +506,7 @@ int main(int argc, char **argv) {
     std::set<std::string> matched;
     for (const auto &path : databases) {
       auto built = BuildDatabase(root, path, output, settings, adaptive,
-                                 parallelism, tables);
+                                 parallelism, tables, joint_specs);
       matched.insert(built.begin(), built.end());
     }
     for (const auto &table : tables)

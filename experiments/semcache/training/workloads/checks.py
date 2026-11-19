@@ -4,14 +4,16 @@ from collections import Counter
 
 import sqlglot
 from sqlglot import exp
-
-from training.query_manifest import (
+from training.workloads.query_manifest import (
     count_operators,
     heldout_manifest,
     query_shape,
     sql_sha256,
 )
-from training.sql_fingerprint import FINGERPRINT_VERSION, structural_fingerprint
+from training.workloads.sql_fingerprint import (
+    FINGERPRINT_VERSION,
+    structural_fingerprint,
+)
 
 MAX_TOTAL_OPERATORS = 32
 MIN_SEMANTIC_OPERATORS = 3

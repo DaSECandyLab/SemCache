@@ -5,7 +5,7 @@ from collections import defaultdict
 
 import torch
 
-from planning.learning.epoch_batches import predict_batch
+from planning.learning.batches.epoch import predict_batch
 
 from .loss import value_loss_terms
 
@@ -16,7 +16,8 @@ def evaluation_metrics(model, rows, config):
     groups = defaultdict(lambda: defaultdict(list))
     for row in rows:
         groups[row["query_key"]][row["context"]].append(row)
-    losses, collected = [], defaultdict(list)
+    losses = []
+    collected = {}
     with torch.no_grad():
         # Independent states can share an inference batch; loss aggregation
         # remains per context and then per query, exactly as during selection.
@@ -39,8 +40,10 @@ def evaluation_metrics(model, rows, config):
             else model.encoder.words.weight.new_empty((0, 2))
         )
         start = 0
-        for contexts in groups.values():
-            context_losses = []
+        detached_totals = []
+        context_query = []
+        collected_tensors = defaultdict(list)
+        for query_index, contexts in enumerate(groups.values()):
             for values in contexts.values():
                 terms = value_loss_terms(
                     predictions[start : start + len(values)],
@@ -49,10 +52,28 @@ def evaluation_metrics(model, rows, config):
                     log_time=True,
                 )
                 start += len(values)
-                context_losses.append(terms["total"].item())
+                detached_totals.append(terms["total"].detach())
+                context_query.append(query_index)
                 for name, value in terms.items():
-                    collected[name].append(value.item())
-            losses.append(statistics.mean(context_losses))
+                    collected_tensors[name].append(value.detach())
+        if detached_totals:
+            total_host = torch.stack(detached_totals).cpu().tolist()
+            by_query = defaultdict(list)
+            for query_index, total in zip(context_query, total_host, strict=True):
+                by_query[query_index].append(total)
+            losses = [
+                statistics.mean(by_query[query_index])
+                for query_index in range(len(groups))
+            ]
+            term_names = list(collected_tensors)
+            term_host = (
+                torch.stack(
+                    [torch.stack(collected_tensors[name]) for name in term_names]
+                )
+                .cpu()
+                .tolist()
+            )
+            collected = dict(zip(term_names, term_host, strict=True))
     return (
         {
             "queries": len(groups),

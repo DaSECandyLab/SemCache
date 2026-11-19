@@ -4,6 +4,7 @@
 #include "../sql/backend.hpp"
 #include "../statistics/statistics.hpp"
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace semcache::sampling {
@@ -45,6 +46,7 @@ public:
 
 private:
   struct Impl;
+  mutable std::recursive_mutex api_mutex;
   std::unique_ptr<Impl> impl;
   void resample_empty(const StatePtr &state);
 };

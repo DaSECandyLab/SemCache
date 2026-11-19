@@ -1,6 +1,76 @@
 #include "detail.hpp"
+#include <fstream>
+#include <list>
+#include <mutex>
+#include <unordered_map>
 
 namespace semcache::sampling {
+namespace {
+struct CachedOfflineArtifact {
+  std::int64_t mtime_ns = 0;
+  std::uint64_t size = 0;
+  std::shared_ptr<const Json> cooccurrence;
+  std::unordered_map<std::string, std::shared_ptr<const Json>> summaries;
+  std::unordered_map<std::string, std::shared_ptr<const Json>> joint_summaries;
+};
+
+std::shared_ptr<const CachedOfflineArtifact>
+load_offline_artifact(const std::string &path, std::int64_t mtime_ns,
+                      std::uint64_t size) {
+  static std::mutex cache_mutex;
+  static std::list<std::string> cache_lru;
+  static std::unordered_map<
+      std::string,
+      std::pair<std::shared_ptr<const CachedOfflineArtifact>,
+                std::list<std::string>::iterator>>
+      cache;
+  {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    const auto found = cache.find(path);
+    if (found != cache.end() && found->second.first->mtime_ns == mtime_ns &&
+        found->second.first->size == size) {
+      cache_lru.splice(cache_lru.begin(), cache_lru, found->second.second);
+      return found->second.first;
+    }
+  }
+  std::ifstream input(path, std::ios::binary);
+  if (!input)
+    throw std::runtime_error("Cannot open offline statistics file: " + path);
+  Json parsed = Json::parse(input);
+  auto artifact = std::make_shared<CachedOfflineArtifact>();
+  artifact->mtime_ns = mtime_ns;
+  artifact->size = size;
+  artifact->cooccurrence =
+      std::make_shared<const Json>(std::move(parsed.at("cooccurrence")));
+  for (auto it = parsed.at("summaries").begin();
+       it != parsed.at("summaries").end(); ++it)
+    artifact->summaries.emplace(
+        it.key(), std::make_shared<const Json>(std::move(it.value())));
+  if (parsed.contains("joint_summaries") &&
+      parsed.at("joint_summaries").is_object()) {
+    for (auto it = parsed.at("joint_summaries").begin();
+         it != parsed.at("joint_summaries").end(); ++it)
+      artifact->joint_summaries.emplace(
+          it.key(), std::make_shared<const Json>(std::move(it.value())));
+  }
+  {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    const auto existing = cache.find(path);
+    if (existing != cache.end()) {
+      cache_lru.erase(existing->second.second);
+      cache.erase(existing);
+    }
+    cache_lru.push_front(path);
+    cache.emplace(path, std::make_pair(artifact, cache_lru.begin()));
+    while (cache_lru.size() > 64) {
+      cache.erase(cache_lru.back());
+      cache_lru.pop_back();
+    }
+  }
+  return artifact;
+}
+} // namespace
+
 NativeSampler::Impl::Impl(const Json &config,
                           std::shared_ptr<NativeSQLBackend> b)
     : imported(config), profile_(config.value("profile", Json::object())),
@@ -78,20 +148,6 @@ NativeSampler::Impl::Impl(const Json &config,
             {"OPERATOR_SPECIFICATION", "TASK_DESCRIPTION", "DATA_BLOCK"});
     }
   }
-  // State workers are I/O owners, not another copy of the DuckDB CPU pool.
-  // Keep at least one reusable I/O worker per distinct candidate model so
-  // different services can wait concurrently even when the CPU setting is 1.
-  // This count is not a same-model lane: Beam transport is unrestricted and
-  // several workers may use the same physical model simultaneously.
-  std::set<std::string> model_ids;
-  for (const auto &[_, op] : ops)
-    if (op.contains("models") && op["models"].is_array())
-      for (const auto &model : op["models"])
-        if (model.is_string())
-          model_ids.insert(model.get<std::string>());
-  const auto state_capacity = std::min<std::size_t>(
-      64, std::max<std::size_t>(workers, model_ids.size()));
-  state_workers = std::make_unique<OrderedTasks>(state_capacity);
   initialize_accuracy_budget(operators);
   ledger = RequestLedger(positive("max_model_calls", 512));
   for (auto &entry : history_) {
@@ -136,8 +192,26 @@ NativeSampler::Impl::Impl(const Json &config,
       throw std::invalid_argument(
           "Base population must be finite and no smaller than sample");
     rel.population = population.get<double>();
-    if (imported.contains("offline_statistics") &&
-        imported.at("offline_statistics").contains(key)) {
+    if (imported.contains("offline_statistics_files") &&
+        imported.at("offline_statistics_files").contains(key)) {
+      const auto &ref = imported.at("offline_statistics_files").at(key);
+      const auto artifact = load_offline_artifact(
+          ref.at("path").get<std::string>(),
+          ref.at("mtime_ns").get<std::int64_t>(),
+          ref.at("size").get<std::uint64_t>());
+      rel.offline_cooccurrence_owner = artifact->cooccurrence;
+      rel.offline_cooccurrence = rel.offline_cooccurrence_owner.get();
+      rel.offline_columns =
+          ref.at("columns").get<std::map<std::string, std::string>>();
+      for (const auto &[field_key, col_name] : rel.offline_columns)
+        rel.summaries[field_key] = artifact->summaries.at(col_name);
+      if (ref.contains("joint_columns") && ref.at("joint_columns").is_object())
+        for (auto f = ref.at("joint_columns").begin();
+             f != ref.at("joint_columns").end(); ++f)
+          rel.joint_summaries[f.value().get<std::string>()] =
+              artifact->joint_summaries.at(f.key());
+    } else if (imported.contains("offline_statistics") &&
+               imported.at("offline_statistics").contains(key)) {
       const auto &offline = imported.at("offline_statistics").at(key);
       rel.offline_cooccurrence = &offline.at("cooccurrence");
       rel.offline_columns =
@@ -145,6 +219,11 @@ NativeSampler::Impl::Impl(const Json &config,
       for (auto f = offline.at("summaries").begin();
            f != offline.at("summaries").end(); ++f)
         rel.summaries[f.key()] = std::make_shared<const Json>(f.value());
+      if (offline.contains("joint_summaries"))
+        for (auto f = offline.at("joint_summaries").begin();
+             f != offline.at("joint_summaries").end(); ++f)
+          rel.joint_summaries[f.key()] =
+              std::make_shared<const Json>(f.value());
     }
     prepare(rel, it.value(), settings.value("seed", Json(42)));
     for (auto &h : rel.strata)

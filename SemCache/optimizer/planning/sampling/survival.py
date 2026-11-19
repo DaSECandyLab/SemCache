@@ -3,12 +3,6 @@
 from .prefix_rates import local_prefix_selectivity, prefix_rate
 
 
-def estimate(coordinator, problem, node, op, observations, info):
-    return propagate_depth_statistics(
-        info, [observations[child].statistics for child in node.children]
-    )
-
-
 def propagate_depth_statistics(info, children):
     """Refresh plan-local products from immutable independent operator facts.
 

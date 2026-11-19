@@ -11,7 +11,6 @@ from planning.backends.execution import DuckDBEvaluator
 from planning.settings.configuration import load_config
 from reference_answers.execution.semcache import HeuristicTeacherPolicy
 from reference_answers.sql.aggregate import capture_plan
-
 from training.artifacts import read, save
 from training.references.scoring import score_execution_pair
 

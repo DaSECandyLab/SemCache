@@ -14,3 +14,7 @@ venvPath = "."
 venv = ".venv-optimizer"
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
+
+[tool.pytest.ini_options]
+pythonpath = ["optimizer", "tests", "../experiments/semcache", ".."]
+testpaths = ["tests"]

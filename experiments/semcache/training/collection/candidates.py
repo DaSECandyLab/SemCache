@@ -1,5 +1,6 @@
 """Beam candidates, frozen sampling observations and selection artifacts."""
 
+import json
 import random
 import time
 from contextlib import nullcontext
@@ -10,10 +11,10 @@ from planning.execution.feedback import freeze_problem
 from planning.kernels.sampling import prepare_profile
 from planning.observations.request_timing import record_phase
 from planning.state import SearchProblem, SearchState, digest
-
 from training.artifacts import save
 from training.collection.policy import (
     PLAN_GENERATION_POLICIES,
+    join_position_signature,
     logical_structure_signature,
     select_accuracy_rollout,
     select_rollout,
@@ -33,18 +34,36 @@ class CandidateBatch:
     uses_value_model: bool
 
 
-def add_unseen_structure(problem, search, result, states, excluded):
-    """Recover a legal structural exploration candidate when the beam collapses."""
+def add_unseen_structure(
+    problem,
+    search,
+    result,
+    states,
+    excluded_structures,
+    excluded_join_positions=(),
+):
+    """Recover a legal structural/join-position exploration candidate if beam collapses."""
     from planning.search.heuristics import action_priorities
 
-    excluded = set(excluded)
-    if not excluded or any(
-        logical_structure_signature(spec, problem.query) not in excluded
-        for spec in result["complete"]
+    excluded_structs = set(excluded_structures)
+    excluded_joins = set(excluded_join_positions) - {None}
+
+    def is_unseen(spec):
+        if logical_structure_signature(spec, problem.query) in excluded_structs:
+            return False
+        if excluded_joins:
+            join_pos = join_position_signature(spec, problem.query)
+            if join_pos is not None and join_pos in excluded_joins:
+                return False
+        return True
+
+    if (not excluded_structs and not excluded_joins) or any(
+        is_unseen(spec) for spec in result["complete"]
     ):
         return
     priorities = (
-        None if search.config.priority_mode == "value"
+        None
+        if search.config.priority_mode == "value"
         else action_priorities(problem, search.config.priority_mode)
     )
     rng = random.Random(search.config.seed + 15485863)
@@ -56,25 +75,61 @@ def add_unseen_structure(problem, search, result, states, excluded):
         except (KeyError, IndexError):
             # Diversity exploration may produce unobserved legal states; score their available partial features and replay before execution.
             return state
-    for attempt in range(256):
-        state = problem.initial
-        for _ in range(len(problem.all_ops) + 1):
-            if problem.complete(state):
-                break
-            options = problem.actions(state, highest_priorities=priorities)
-            if not options:
-                break
-            groups = {}
-            for action in options:
-                groups.setdefault(action["operator_id"], []).append(action)
-            state = problem.transition(
-                state, rng.choice(groups[rng.choice(sorted(groups))]), observe=False
-            )
-        if not problem.complete(state):
-            continue
+
+    def native_spec_stub(exported_actions):
+        spec = {}
+        if problem.tree_regions:
+            spec["tree_choices"] = [
+                {
+                    "region_id": region["region_id"],
+                    "actions": [
+                        dict(
+                            node_id=problem.all_ops[action["operator_id"]]["node_id"],
+                            inputs=action["inputs"],
+                            **(
+                                {"pair_for": action["pair_for"]}
+                                if "pair_for" in action
+                                else {}
+                            ),
+                        )
+                        for action in exported_actions
+                        if problem.all_ops[action["operator_id"]]["node_id"]
+                        in region["nodes"]
+                    ],
+                    "root": next(
+                        problem.all_ops[action["operator_id"]]["node_id"]
+                        for action in reversed(exported_actions)
+                        if problem.all_ops[action["operator_id"]]["node_id"]
+                        in region["nodes"]
+                    ),
+                }
+                for region in problem.tree_regions
+            ]
+        if problem.predicate_regions:
+            spec["predicate_order"] = [
+                {
+                    "region_id": region["region_id"],
+                    "nodes": [
+                        problem.all_ops[action["operator_id"]]["node_id"]
+                        for action in exported_actions
+                        if problem.all_ops[action["operator_id"]]["node_id"]
+                        in region["nodes"]
+                    ],
+                }
+                for region in problem.predicate_regions
+            ]
+        if not problem.tree_regions and not problem.predicate_regions:
+            spec["actions"] = [
+                {k: v for k, v in action.items() if k != "inputs"}
+                for action in exported_actions
+                if action["operator_id"] in problem.ops
+            ]
+        return spec
+
+    def append_explored(state, attempt, policy_label):
         spec = problem.spec(state)
-        if logical_structure_signature(spec, problem.query) in excluded:
-            continue
+        if not is_unseen(spec):
+            return False
         state = refresh_candidate(state)
         search.refresh_context(problem, [state])
         prediction = search.predictions(problem, [state])
@@ -83,59 +138,91 @@ def add_unseen_structure(problem, search, result, states, excluded):
         search._resident_scores[state.history] = tuple(score)
         states.append(state)
         result["complete"].append(spec)
-        result["assessments"].append({
-            "plan_key": digest(state.history), "accuracy": accuracy,
-            "time_prediction": seconds, "basis": "learned completion value",
-            "status": "feasible" if accuracy >= problem.constraints.get("a_min", 0)
-            else "infeasible",
-        })
+        result["assessments"].append(
+            {
+                "plan_key": digest(state.history),
+                "accuracy": accuracy,
+                "time_prediction": seconds,
+                "basis": "learned completion value",
+                "status": "feasible"
+                if accuracy >= problem.constraints.get("a_min", 0)
+                else "infeasible",
+            }
+        )
         result["structural_diversity_exploration"] = {
-            "attempts": attempt + 1, "policy": "highest_legal_priority_group",
+            "attempts": attempt + 1,
+            "policy": policy_label,
             "additional_sampling": False,
         }
+        return True
+
+    def explore(attempts, active_priorities, policy_label):
+        native = problem.native_problem
+        step_limit = len(problem.all_ops) + 1
+        for attempt in attempts:
+            if native is not None:
+                handle = native.initial()
+                for _ in range(step_limit):
+                    if native.complete(handle):
+                        break
+                    options = native.actions(
+                        handle, False, False, active_priorities, None
+                    )
+                    if not options:
+                        break
+                    groups = {}
+                    for action in options:
+                        groups.setdefault(action["operator_id"], []).append(action)
+                    handle = native.transition(
+                        handle, rng.choice(groups[rng.choice(sorted(groups))])
+                    )
+                if not native.complete(handle):
+                    continue
+                exported_actions = [json.loads(value) for value in handle.history]
+                if not is_unseen(native_spec_stub(exported_actions)):
+                    continue
+                state = problem.initial
+                for action in exported_actions:
+                    state = problem.transition(state, action, observe=False)
+                if not problem.complete(state):
+                    continue
+            else:
+                state = problem.initial
+                for _ in range(step_limit):
+                    if problem.complete(state):
+                        break
+                    options = problem.actions(state, highest_priorities=active_priorities)
+                    if not options:
+                        break
+                    groups = {}
+                    for action in options:
+                        groups.setdefault(action["operator_id"], []).append(action)
+                    state = problem.transition(
+                        state,
+                        rng.choice(groups[rng.choice(sorted(groups))]),
+                        observe=False,
+                    )
+                if not problem.complete(state):
+                    continue
+            if append_explored(state, attempt, policy_label):
+                return True
+        return False
+
+    if explore(range(64), priorities, "highest_legal_priority_group"):
         return
-    # If priority groups prevent topology diversity, widen only structural exploration; Beam ranking retains its priority policy.
-    if priorities is not None:
-        for attempt in range(256, 320):
-            state = problem.initial
-            for _ in range(len(problem.all_ops) + 1):
-                if problem.complete(state):
-                    break
-                options = problem.actions(state, highest_priorities=None)
-                if not options:
-                    break
-                groups = {}
-                for action in options:
-                    groups.setdefault(action["operator_id"], []).append(action)
-                state = problem.transition(
-                    state, rng.choice(groups[rng.choice(sorted(groups))])
-                )
-            if not problem.complete(state):
-                continue
-            spec = problem.spec(state)
-            if logical_structure_signature(spec, problem.query) in excluded:
-                continue
-            state = refresh_candidate(state)
-            search.refresh_context(problem, [state])
-            prediction = search.predictions(problem, [state])
-            score = prediction["scores"][0]
-            seconds, accuracy = prediction["times"][0], prediction["accuracies"][0]
-            search._resident_scores[state.history] = tuple(score)
-            states.append(state)
-            result["complete"].append(spec)
-            result["assessments"].append({
-                "plan_key": digest(state.history), "accuracy": accuracy,
-                "time_prediction": seconds, "basis": "learned completion value",
-                "status": "feasible" if accuracy >= problem.constraints.get("a_min", 0)
-                else "infeasible",
-            })
-            result["structural_diversity_exploration"] = {
-                "attempts": attempt + 1,
-                "policy": "fallback_all_legal_actions",
-                "additional_sampling": False,
-            }
-            return
-    raise ValueError("Could not construct a third distinct legal plan structure")
+    # If priority groups prevent join-position or topology diversity, widen only
+    # structural exploration; Beam ranking retains its priority policy.
+    if priorities is not None and explore(
+        range(64, 576), None, "fallback_all_legal_actions"
+    ):
+        return
+    if priorities is None and explore(
+        range(64, 576), None, "highest_legal_priority_group"
+    ):
+        return
+    raise ValueError(
+        "Could not construct a distinct legal plan structure and join position"
+    )
 
 
 def search_candidates(
@@ -161,6 +248,7 @@ def search_candidates(
     minimum_accuracy=None,
     excluded_plan_signatures=(),
     excluded_structure_signatures=(),
+    excluded_join_positions=(),
     prepared_statistics=None,
 ):
     """Run one sampled Beam and freeze its completions before making labels."""
@@ -211,7 +299,12 @@ def search_candidates(
         if phase == "measured":
             if selection_policy == "minimum_accuracy":
                 add_unseen_structure(
-                    problem, search, result, states, excluded_structure_signatures
+                    problem,
+                    search,
+                    result,
+                    states,
+                    excluded_structure_signatures,
+                    excluded_join_positions,
                 )
             eligible = (
                 states if selection_policy == "minimum_accuracy" else result["states"]
@@ -232,6 +325,7 @@ def search_candidates(
                     minimum_accuracy,
                     excluded_plan_signatures,
                     excluded_structure_signatures,
+                    excluded_join_positions,
                     query=problem.query,
                 )
                 result.update(

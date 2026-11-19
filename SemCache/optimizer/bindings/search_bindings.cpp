@@ -1,5 +1,4 @@
-#include "observation_core.hpp"
-#include "resident_driver.hpp"
+#include "drivers/resident_driver.hpp"
 #include "semcache/prefix_sketch.h"
 #include "state_bindings.hpp"
 #include <dlfcn.h>
@@ -32,7 +31,6 @@ PYBIND11_MODULE(_search_core, module) {
     return std::string(info.dli_fname);
   });
   bind_state(module);
-  bind_observations(module);
   bind_cache_terms(module);
   bind_feature_buffers(module);
   bind_native_features(module);

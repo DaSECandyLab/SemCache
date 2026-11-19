@@ -1,6 +1,6 @@
 #pragma once
-#include "../../common/parallel.hpp"
-#include "../timing.hpp"
+#include "../../common/pipeline/parallel.hpp"
+#include "../support/timing.hpp"
 #include <algorithm>
 
 namespace semcache::sampling::resident_detail {

@@ -12,7 +12,7 @@ from planning.learning.features.graph import encode
 from planning.learning.features.schema import FEATURE_GROUPS, FEATURE_VERSION
 
 from .encoder import GraphEncoder, mlp
-from .remaining import REMAINING_ENCODING
+from .encoder.remaining import REMAINING_ENCODING
 
 CHECKPOINT_VERSION = 10
 _INFERENCE_SESSION_LOCK = threading.Lock()
@@ -139,7 +139,11 @@ class PlanValueModel(nn.Module):
         predicted = torch.nn.functional.softplus(self.time_head(z))
         if not log_time:
             maximum = torch.finfo(predicted.dtype).max
-            limit = math.log(torch.finfo(torch.float64).max) - 1
+            limit = (
+                math.log(torch.finfo(torch.float64).max)
+                - 1
+                - math.log(max(1.0, float(self.time_scale)))
+            )
             predicted = (
                 (predicted.double().clamp(max=limit).expm1() * self.time_scale)
                 .clamp(max=maximum)
@@ -238,19 +242,23 @@ class PlanValueModel(nn.Module):
             ),
         ):
             buffers = self.encoder.prepare_native_batch(batch)
-            node_vectors = self.encoder.words.weight.new_zeros(
-                (max(1, len(batch.templates)), self.encoder.width)
-            )
+            node_vectors = buffers.get("node_vectors")
+            if node_vectors is None:
+                node_vectors = self.encoder.words.weight.new_zeros(
+                    (max(1, len(batch.templates)), self.encoder.width)
+                )
+            chunks = []
             for start in range(0, len(batch.node_indices), self.inference_batch_size):
                 end = min(start + self.inference_batch_size, len(batch.node_indices))
                 z = self.encoder.forward_native_batch(
                     batch, buffers, start, end, node_vectors
                 )
-                values = self.predictions(z)
+                chunks.append(self.predictions(z))
+            if chunks:
+                joined = torch.cat(chunks, dim=0)
                 if cpu_values is None:
-                    result.extend(values.cpu().tolist())
-                else:
-                    cpu_values[start:end].copy_(values)
+                    return joined.cpu().tolist()
+                cpu_values.copy_(joined)
         return result if cpu_values is None else cpu_values
 
     def completion_native_prediction(self, batch):

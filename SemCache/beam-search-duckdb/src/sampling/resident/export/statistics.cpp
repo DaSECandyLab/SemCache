@@ -5,6 +5,7 @@
 namespace semcache::sampling {
 std::map<Id, std::map<std::string, SharedSamples>>
 NativeSampler::statistic_fields(const StatePtr &state) const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   auto &data = impl->states.at(state->handle_id);
   std::map<Id, std::map<std::string, SharedSamples>> result;
   for (const auto &entry : data.observations) {
@@ -30,6 +31,7 @@ NativeSampler::statistic_fields(const StatePtr &state) const {
   return result;
 }
 Json NativeSampler::full_statistics(const StatePtr &state) const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   auto &data = impl->states.at(state->handle_id);
   Json result = Json::object();
   for (auto &entry : data.observations) {
@@ -47,6 +49,7 @@ Json NativeSampler::full_statistics(const StatePtr &state) const {
   return result;
 }
 Json NativeSampler::statistics(const StatePtr &state) const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   Json result = Json::object();
   for (const auto &entry : impl->states.at(state->handle_id).stats)
     result[std::to_string(entry.first)] = entry.second.read();
@@ -54,12 +57,14 @@ Json NativeSampler::statistics(const StatePtr &state) const {
 }
 std::map<Id, SharedSamples>
 NativeSampler::statistic_blocks(const StatePtr &state) const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   std::map<Id, SharedSamples> result;
   for (const auto &entry : impl->states.at(state->handle_id).stats)
     result.emplace(entry.first, entry.second.handle());
   return result;
 }
 Json NativeSampler::cache(const StatePtr &) const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   Json history = Json::array(), profile = Json::object();
   for (auto &e : impl->history_) {
     Json slim = Json::object();
@@ -79,12 +84,14 @@ Json NativeSampler::cache(const StatePtr &) const {
           {"version", impl->history_version}};
 }
 Json NativeSampler::samples(const StatePtr &state) const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   Json result = Json::object();
   for (auto &e : impl->states.at(state->handle_id).observations)
     result[std::to_string(e.first)] = *e.second->rows;
   return result;
 }
 Json NativeSampler::profile() const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   Json result = Json::object();
   static const std::set<std::string> immutable{
       "prefix_statistics", "conditional_inputs", "statistics",
@@ -184,8 +191,34 @@ Json NativeSampler::profile() const {
           record["right_summary"] = *observation->right_summary;
       }
       record["input_field_summaries"] = Json::object();
-      if (impl->sample_depth_selectivity || impl->ensure_prefix_depth_rates)
-        for (const auto &field : input_keys(op)) {
+      if (impl->sample_depth_selectivity || impl->ensure_prefix_depth_rates) {
+        const auto op_inputs = input_keys(op);
+        const std::set<std::string> op_input_set(op_inputs.begin(),
+                                                 op_inputs.end());
+        for (const auto &raw : core.node->relations) {
+          const auto relation = node_relkey(raw);
+          const auto &rel = impl->relations.at(relation);
+          for (const auto &[joint_key, joint_summary] : rel.joint_summaries) {
+            const auto cols = Json::parse(joint_key, nullptr, false);
+            if (!cols.is_array() || cols.size() < 2)
+              continue;
+            bool all_present = true;
+            for (const auto &col : cols)
+              if (!col.is_string() ||
+                  !op_input_set.count(col.get<std::string>())) {
+                all_present = false;
+                break;
+              }
+            if (!all_present)
+              continue;
+            const auto &first_vk = cols[0].get_ref<const std::string &>();
+            record["input_field_summaries"]["joint:" + joint_key] = {
+                {"summary", *joint_summary},
+                {"survival_field", relation + ":" + first_vk},
+                {"origin", Json::array({relation, first_vk})}};
+          }
+        }
+        for (const auto &field : op_inputs) {
           bool base = false;
           for (const auto &raw : core.node->relations) {
             const auto relation = node_relkey(raw);
@@ -263,6 +296,7 @@ Json NativeSampler::profile() const {
                 {"survival_field", "generated:" + field}};
           }
         }
+      }
       if (impl->sample_depth_selectivity || impl->ensure_prefix_depth_rates) {
         record["prefix_selectivity_statistics"] = Json::object();
         const auto kind = op.value("kind", op.value("type", std::string()));
@@ -328,5 +362,8 @@ Json NativeSampler::profile() const {
     }
   return result;
 }
-Json NativeSampler::history() const { return impl->history_; }
+Json NativeSampler::history() const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
+  return impl->history_;
 }
+} // namespace semcache::sampling

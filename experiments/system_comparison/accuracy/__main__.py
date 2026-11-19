@@ -9,17 +9,17 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from experiments.core.io import digest, save
-from experiments.system_comparison.accuracy.artifacts import (
+from experiments.system_comparison.accuracy.reporting.artifacts import (
     load_campaign,
     load_references,
 )
-from experiments.system_comparison.accuracy.matching import (
+from experiments.system_comparison.accuracy.reporting.report import write_report
+from experiments.system_comparison.accuracy.scoring.matching import (
     SOURCE_GROUNDED_RUBRIC,
     TEXT_FIELDS,
     finish_match,
     prepare_match,
 )
-from experiments.system_comparison.accuracy.report import write_report
 from experiments.system_comparison.accuracy.teacher import (
     judge_pairs,
     review_unresolved,

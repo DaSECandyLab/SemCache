@@ -3,6 +3,7 @@
 
 namespace semcache::sampling {
 Json NativeSampler::calls() const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   auto result = impl->counters;
   result["semantic_operator_count"] =
       std::count_if(impl->ops.begin(), impl->ops.end(), [](const auto &entry) {
@@ -10,7 +11,7 @@ Json NativeSampler::calls() const {
       });
   result["sampled_semantic_operator_count"] =
       impl->directly_sampled_operators.size();
-  result["state_workers_peak"] = impl->state_workers->peak();
+  result["state_workers_peak"] = std::size_t(0);
   // The physical serial identifies one immutable input/evidence snapshot.
   // Prior-only refreshes are alternative estimates of that snapshot: choose
   // the newest one, never the strongest source encountered in hash-map order.
@@ -187,18 +188,6 @@ Json NativeSampler::calls() const {
             result["sql_cache"].value(it.key(), std::size_t(0)) +
             it.value().get<std::size_t>();
     }
-    for (const auto &slot : impl->state_slots) {
-      if (!slot || slot->backend == impl->backend)
-        continue;
-      result["sampling_sql_workers_peak"] =
-          std::max(result["sampling_sql_workers_peak"].get<std::size_t>(),
-                   slot->backend->sample_workers_peak());
-      const auto extra = slot->backend->diagnostics();
-      for (auto it = extra.begin(); it != extra.end(); ++it)
-        result["sql_cache"][it.key()] =
-            result["sql_cache"].value(it.key(), std::size_t(0)) +
-            it.value().get<std::size_t>();
-    }
     for (std::size_t i = 1; i < impl->quality_workers.size(); ++i) {
       const auto extra = impl->quality_workers[i]->backend->diagnostics();
       for (auto it = extra.begin(); it != extra.end(); ++it)
@@ -210,27 +199,8 @@ Json NativeSampler::calls() const {
   return result;
 }
 Json NativeSampler::timings() const {
+  std::lock_guard<std::recursive_mutex> lock(api_mutex);
   Json result = impl->backend ? impl->backend->timings() : Json::object();
-  for (const auto &slot : impl->state_slots) {
-    if (!slot || slot->backend == impl->backend)
-      continue;
-    const auto other = slot->backend->timings();
-    for (auto it = other.begin(); it != other.end(); ++it) {
-      auto &metric = result[it.key()];
-      if (!metric.is_object())
-        metric = Json::object();
-      metric["seconds"] =
-          metric.value("seconds", 0.) + it.value().at("seconds").get<double>();
-      metric["calls"] = metric.value("calls", std::size_t(0)) +
-                        it.value().at("calls").get<std::size_t>();
-      if (it.value().contains("spans_ns")) {
-        if (!metric.contains("spans_ns"))
-          metric["spans_ns"] = Json::array();
-        for (const auto &span : it.value().at("spans_ns"))
-          metric["spans_ns"].push_back(span);
-      }
-    }
-  }
   for (std::size_t i = 1; i < impl->quality_workers.size(); ++i) {
     const auto other = impl->quality_workers[i]->backend->timings();
     for (auto it = other.begin(); it != other.end(); ++it) {

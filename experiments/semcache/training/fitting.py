@@ -8,10 +8,9 @@ from planning.learning.training.config import TrainingConfig
 from planning.learning.training.data import dataset, validate_dataset
 from planning.learning.training.engine import train
 from planning.settings.configuration import load_config
-
 from training.artifacts import save
-from training.collection.accuracy_labels import apply_accuracy_labels
 from training.collection.collector import COLLECTION_PROTOCOL
+from training.collection.labeling.accuracy_labels import apply_accuracy_labels
 from training.collection.policy import ACCURACY_FEEDBACK_PROTOCOL, FEEDBACK_PROTOCOL
 
 

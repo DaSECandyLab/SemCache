@@ -1,6 +1,6 @@
 #pragma once
-#include "../populations.hpp"
-#include "../random.hpp"
+#include "../support/populations.hpp"
+#include "../support/random.hpp"
 #include <functional>
 #include <optional>
 #include <unordered_map>

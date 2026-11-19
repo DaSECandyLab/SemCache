@@ -1,5 +1,5 @@
 #pragma once
-#include "../../common/inputs.hpp"
+#include "../../common/pipeline/inputs.hpp"
 #include <array>
 #include <cstdint>
 #include <memory>
