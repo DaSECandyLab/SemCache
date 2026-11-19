@@ -215,7 +215,7 @@ SemCache/.venv-optimizer/bin/python -m training.evaluation.checkpoint \
 - `--heldout`: evaluate the test queries.
 - `--cases`: select accuracy targets from `min-20`, `min-50`, and `min-80`.
 - `--checkpoint-round N`: select a training round.
-- `--global-http-limit`: set total HTTP concurrency for locally deployed models (external Teacher endpoints are bounded separately by `execution.max_concurrent_external_teacher_requests` in `SemCache/config/system/execution.json`).
+- `--global-http-limit`: set total HTTP concurrency for local models.
 
 Each accuracy target runs across the full query set. Evaluation enables the prompt result cache, disables second-use verification, and resets caches before each target group. Add `--preserve-cache` to retain caches across groups.
 
@@ -289,7 +289,7 @@ experiments/
 systems/                  Comparison system submodules
 ```
 
-Core configuration is composed through `SemCache/config/system/config.json` (and Teacher templates live in `SemCache/config/teacher/teacher.example.json`). In particular, `SemCache/config/system/execution.json` configures `max_concurrent_external_teacher_requests` independently of the local `--global-http-limit`, and `SemCache/config/system/search.json` configures `search.inference.grouped_operator_threshold` (`10`), `max_structure_groups` (`15`), and `max_implementations_per_group` (`6`) for automatic grouped layer pruning on complex queries. Runtime paths in the core configuration are relative to `SemCache/`; `include` paths are relative to the containing configuration file.
+Core configuration is composed through `SemCache/config/system/config.json` (and Teacher templates live in `SemCache/config/teacher/teacher.example.json`). Runtime paths in the core configuration are relative to `SemCache/`; `include` paths are relative to the containing configuration file.
 
 ## Development
 
